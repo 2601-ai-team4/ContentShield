@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { 
+/** [File: DashboardV2.jsx / Date: 2026-01-22 / 설명: 대시보드 실시간 통계 데이터 연동 로직 복구 및 UI 레이아웃 수정] */
+import React, { useState, useEffect } from 'react';
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell 
+  PieChart, Pie, Cell
 } from 'recharts';
-import { 
+import {
   TrendingUp, Shield, AlertTriangle, CheckCircle, FileText, Plus, Edit, Trash2,
-  Wand2, Copy, RotateCcw, Sparkles, UserX, Search, MessageSquare, 
+  Wand2, Copy, RotateCcw, Sparkles, UserX, Search, MessageSquare,
   User, Activity, Bell, Lock, Save, Send, Lightbulb
 } from 'lucide-react';
+import dashboardService from '../../services/dashboardService';
 
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
@@ -56,16 +58,15 @@ export default function DashboardV2() {
         </div>
         <nav className="px-4 space-y-2">
           {menuItems.map(item => (
-            <button 
-              key={item.id} 
-              onClick={() => setActiveTab(item.id)} 
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === item.id 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === item.id
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
                 : 'text-slate-500 hover:bg-slate-800 hover:text-slate-200'
-              }`}
+                }`}
             >
-              <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} /> 
+              <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
               {item.label}
             </button>
           ))}
@@ -91,10 +92,31 @@ export default function DashboardV2() {
 
 // --- [1. Dashboard View] ---
 function DashboardView() {
-  const chartData = [
-    { name: 'Mon', count: 40 }, { name: 'Tue', count: 30 }, { name: 'Wed', count: 60 },
-    { name: 'Thu', count: 45 }, { name: 'Fri', count: 90 }, { name: 'Sat', count: 55 },
-  ];
+  const [stats, setStats] = useState({
+    total: 0,
+    malicious: 0,
+    clean: 0,
+    detectionRate: '0.0%',
+    weeklyActivity: [],
+    notifications: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await dashboardService.getStats();
+        setStats(data);
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  if (loading) return <div className="text-center p-20 text-slate-500 text-sm animate-pulse">데이터를 불러오는 중...</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -104,10 +126,10 @@ function DashboardView() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total" value="1,284" icon={Shield} color="text-blue-400" />
-        <StatCard title="Malicious" value="92" icon={AlertTriangle} color="text-red-400" />
-        <StatCard title="Clean" value="1,192" icon={CheckCircle} color="text-emerald-400" />
-        <StatCard title="Detection" value="7.1%" icon={TrendingUp} color="text-amber-400" />
+        <StatCard title="Total" value={stats.total.toLocaleString()} icon={Shield} color="text-blue-400" />
+        <StatCard title="Malicious" value={stats.malicious.toLocaleString()} icon={AlertTriangle} color="text-red-400" />
+        <StatCard title="Clean" value={stats.clean.toLocaleString()} icon={CheckCircle} color="text-emerald-400" />
+        <StatCard title="Detection" value={stats.detectionRate} icon={TrendingUp} color="text-amber-400" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -115,13 +137,13 @@ function DashboardView() {
           <CardHeader><CardTitle>Weekly Activity</CardTitle></CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <BarChart data={stats.weeklyActivity}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
-                  cursor={{fill: '#1e293b'}}
+                  cursor={{ fill: '#1e293b' }}
                 />
                 <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={30} />
               </BarChart>
@@ -131,15 +153,15 @@ function DashboardView() {
         <Card>
           <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2" />
+            {stats.notifications.length > 0 ? stats.notifications.map((note, i) => (
+              <div key={note.id || i} className="flex gap-3 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
+                <div className={`h-2 w-2 rounded-full mt-2 ${note.isMalicious ? 'bg-red-500' : 'bg-emerald-500'}`} />
                 <div>
-                  <p className="text-sm font-medium">새로운 악성 댓글 감지</p>
-                  <p className="text-xs text-slate-500">2분 전</p>
+                  <p className="text-sm font-medium">{note.isMalicious ? '악성' : '클린'} 댓글 감지 ({note.category})</p>
+                  <p className="text-xs text-slate-500">{new Date(note.analyzedAt).toLocaleString()}</p>
                 </div>
               </div>
-            ))}
+            )) : <p className="text-center text-slate-500 text-sm py-10">알림 내역이 없습니다.</p>}
           </CardContent>
         </Card>
       </div>
@@ -160,7 +182,7 @@ function BlacklistView() {
           <h2 className="text-2xl font-bold text-white">Blacklist Management</h2>
           <p className="text-slate-500 text-sm">차단된 사용자 목록을 관리합니다.</p>
         </div>
-        <Button className="gap-2"><Plus size={16}/> Add User</Button>
+        <Button className="gap-2"><Plus size={16} /> Add User</Button>
       </div>
       <Card><CardContent className="p-0 overflow-hidden">
         <table className="w-full text-left">
@@ -184,7 +206,7 @@ function BlacklistView() {
                 </td>
                 <td className="p-4 text-slate-400 text-sm">{i.reason}</td>
                 <td className="p-4 text-right">
-                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100"><Trash2 size={16} className="text-red-500"/></Button>
+                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100"><Trash2 size={16} className="text-red-500" /></Button>
                 </td>
               </tr>
             ))}
@@ -207,11 +229,11 @@ function CommentAnalysisView() {
       </div>
       <Card className="border-blue-900/30 bg-slate-900/80 backdrop-blur">
         <CardContent className="p-8 space-y-6">
-          <Textarea 
-            placeholder="분석할 댓글이나 문장을 입력하세요..." 
-            value={text} 
-            onChange={(e)=>setText(e.target.value)} 
-            className="h-48 bg-slate-950/50 border-slate-800 text-lg p-6" 
+          <Textarea
+            placeholder="분석할 댓글이나 문장을 입력하세요..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="h-48 bg-slate-950/50 border-slate-800 text-lg p-6"
           />
           <Button className="w-full h-14 text-lg font-bold shadow-blue-600/20" variant="primary">
             <Sparkles className="mr-2" size={20} /> 실시간 분석하기
@@ -230,14 +252,14 @@ function TemplateView() {
   ];
   return (
     <div className="space-y-6 animate-in fade-in">
-      <div className="flex justify-between items-center"><h2 className="text-2xl font-bold">Reply Templates</h2><Button className="gap-2"><Plus size={16}/> New</Button></div>
+      <div className="flex justify-between items-center"><h2 className="text-2xl font-bold">Reply Templates</h2><Button className="gap-2"><Plus size={16} /> New</Button></div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {templates.map(t => (
           <Card key={t.id} className="hover:border-blue-600/50 transition-all cursor-pointer group">
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-400/10 px-2 py-1 rounded">{t.category}</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Edit size={14}/><Trash2 size={14} className="text-red-500"/></div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Edit size={14} /><Trash2 size={14} className="text-red-500" /></div>
               </div>
               <h3 className="text-lg font-bold text-white mb-2">{t.name}</h3>
               <p className="text-sm text-slate-500 leading-relaxed">{t.content}</p>

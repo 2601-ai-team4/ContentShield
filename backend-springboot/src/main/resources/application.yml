@@ -2,12 +2,13 @@ spring:
   application:
     name: sns-content-analyzer
 
+  # [File: application.yml / Date: 2026-01-22 / 설명: MariaDB(3307) 연결 정보 및 서버 포트(8081) 설정 수정]
   # Database Configuration - MariaDB
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://localhost:3307/sns_content_analyzer?useUnicode=true&characterEncoding=utf8mb4
-    username: root
-    password: 1234
+    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3307}/${DB_NAME:sns_content_analyzer}?useUnicode=true&characterEncoding=utf8mb4
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:1234}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
@@ -50,7 +51,7 @@ ai:
 
 # Server Configuration
 server:
-  port: 8080
+  port: 8081
   servlet:
     context-path: /
     encoding:
