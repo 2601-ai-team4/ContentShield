@@ -3,11 +3,11 @@ import api from './api';
 
 const dashboardService = {
     getStats: async () => {
-        const response = await api.get('/dashboard/stats');
+        const response = await api.get('dashboard/stats');
         return response.data;
     },
     analyzeVideo: async (url, limit = 20) => {
-        const response = await api.post('/analysis/video', { url, limit });
+        const response = await api.post('analysis/video', { url, limit });
         return response.data;
     }
 };

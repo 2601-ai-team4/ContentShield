@@ -14,6 +14,10 @@ import httpx
 import json
 import re
 import asyncio
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 # 로깅 설정
 logging.basicConfig(
