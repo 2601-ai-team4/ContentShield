@@ -1241,7 +1241,6 @@ async def analyze_batch(
     }
 
 
-<<<<<<< HEAD
 # ==================== YouTube Crawler ====================
 
 class YoutubeCrawlRequest(BaseModel):
@@ -1290,7 +1289,6 @@ async def crawl_youtube(request: YoutubeCrawlRequest):
         raise HTTPException(status_code=500, detail=f"Crawling failed: {str(e)}")
 
 
-=======
 # ==================== 🆕 AI Assistant 엔드포인트 ====================
 
 @app.post("/api/assistant/analyze", response_model=AssistantResponse)
@@ -1444,7 +1442,6 @@ async def assistant_template(request: AssistantTemplateRequest):
     except Exception as e:
         logger.error(f"Assistant template failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
->>>>>>> origin/sieun
 
 
 @app.get("/models/info")

@@ -4,8 +4,8 @@ import api from './api'; // Ensure this exists or use fetch. Let's assume api wa
 // But to be safe and consistent with sieun, I will use fetch for everything if api import is missing.
 // Actually, I'll try to use the existing `api` instance if possible, but since I can't see the import, I'll stick to fetch for safety or define a simple fetch wrapper.
 
-const API_BASE_URL = process.env.REACT_APP_FASTAPI_URL || 'http://localhost:8000'
-const SPRING_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api'
+const API_BASE_URL = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000'
+const SPRING_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api'
 
 // === Legacy Methods (from HEAD) ===
 export const analyzeComment = async (commentId) => {
@@ -27,29 +27,6 @@ export const getHistory = async () => {
 export const getStats = async () => {
   const response = await fetch(`${SPRING_API_URL}/analysis/stats`);
   if (!response.ok) throw new Error('Failed to fetch stats');
-  return response.json();
-}
-const SPRING_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api' // Assuming Spring Boot URL
-
-// Legacy methods from HEAD (adapted to fetch or api)
-export const analyzeComment = async (commentId) => {
-  // Assuming this endpoints connects to Spring Boot? HEAD used 'analysis/comment'
-  // If 'api' was pointing to Spring Boot, we should use that.
-  const response = await fetch(`${SPRING_API_URL}/analysis/comment`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commentId })
-  });
-  return response.json();
-}
-
-export const getHistory = async () => {
-  const response = await fetch(`${SPRING_API_URL}/analysis/history`);
-  return response.json();
-}
-
-export const getStats = async () => {
-  const response = await fetch(`${SPRING_API_URL}/analysis/stats`);
   return response.json();
 }
 

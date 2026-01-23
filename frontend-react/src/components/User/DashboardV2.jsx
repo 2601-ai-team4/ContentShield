@@ -3,7 +3,7 @@
 /** [File: DashboardV2.jsx / Date: 2026-01-22 / 작성자: 윤혜정 / 설명: AI 분석 연동 및 프로필 관리 기능 추가] */
 import React, { useState, useEffect } from 'react';
 import { userService } from '../../services/userService';
-import { analysisService } from '../../services/analysisService';
+import analysisService from '../../services/analysisService';
 import { commentService } from '../../services/commentService';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -92,7 +92,7 @@ export default function DashboardV2() {
           {activeTab === 'analysis' && <CommentAnalysisView />}
           {activeTab === 'management' && <CommentManagementView />}
           {activeTab === 'blacklist' && <BlacklistView />}
-          {activeTab === 'writing' && <WritingAssistantView />}
+          {activeTab === 'writing' && <TemplateManager />}
           {activeTab === 'templates' && <TemplateView />}
           {activeTab === 'stats' && <StatisticsView />}
           {activeTab === 'profile' && <ProfileSettings />}
