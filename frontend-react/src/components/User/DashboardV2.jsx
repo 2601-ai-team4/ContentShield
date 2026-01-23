@@ -8,6 +8,7 @@ import {
   Wand2, Copy, RotateCcw, Sparkles, UserX, Search, MessageSquare, 
   User, Activity, Bell, Lock, Save, Send, Lightbulb
 } from 'lucide-react';
+import TemplateManager from './TemplateManager';
 
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
@@ -222,32 +223,6 @@ function CommentAnalysisView() {
   );
 }
 
-// --- [4. Template View] ---
-function TemplateView() {
-  const templates = [
-    { id: 1, name: 'Welcome Message', category: 'General', content: '방문해주셔서 감사합니다! 긍정적인 커뮤니티를 함께 만들어요.' },
-    { id: 2, name: 'Support Reply', category: 'Help', content: '문의하신 내용은 확인 후 빠르게 답변 드리겠습니다.' },
-  ];
-  return (
-    <div className="space-y-6 animate-in fade-in">
-      <div className="flex justify-between items-center"><h2 className="text-2xl font-bold">Reply Templates</h2><Button className="gap-2"><Plus size={16}/> New</Button></div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {templates.map(t => (
-          <Card key={t.id} className="hover:border-blue-600/50 transition-all cursor-pointer group">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-400/10 px-2 py-1 rounded">{t.category}</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Edit size={14}/><Trash2 size={14} className="text-red-500"/></div>
-              </div>
-              <h3 className="text-lg font-bold text-white mb-2">{t.name}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed">{t.content}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // --- [공통 보조 컴포넌트] ---
 function StatCard({ title, value, icon: Icon, color }) {
@@ -267,7 +242,9 @@ function StatCard({ title, value, icon: Icon, color }) {
 }
 
 // 나머지 뷰는 위와 동일한 다크 테마 컨셉으로 표시 (생략된 뷰들)
-function WritingAssistantView() { return <div className="text-center p-20 text-slate-500">Writing Assistant Module Loading...</div>; }
+function WritingAssistantView() {
+  return <TemplateManager />;
+}
 function StatisticsView() { return <div className="text-center p-20 text-slate-500">Advanced Analytics Data Preparing...</div>; }
 function CommentManagementView() { return <div className="text-center p-20 text-slate-500">Comment Feed Synchronizing...</div>; }
 function ProfileView() { return <div className="text-center p-20 text-slate-500">Secure Profile Settings...</div>; }
