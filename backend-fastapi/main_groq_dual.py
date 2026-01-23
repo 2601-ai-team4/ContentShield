@@ -632,12 +632,62 @@ async def analyze_batch(
             logger.error(f"Failed: {e}")
             results.append(None)
     
+    
     return {
         "total": len(results),
         "results": results,
         "dual_model": use_dual_model,
         "processed_at": datetime.now().isoformat()
     }
+
+
+# ==================== YouTube Crawler ====================
+
+class YoutubeCrawlRequest(BaseModel):
+    url: str
+
+@app.post("/crawl/youtube")
+async def crawl_youtube(request: YoutubeCrawlRequest):
+    """유튜브 댓글 수집 (youtube-comment-downloader 사용)"""
+    logger.info(f"Crawling YouTube comments for: {request.url}")
+    
+    try:
+        from youtube_comment_downloader import YoutubeCommentDownloader
+        downloader = YoutubeCommentDownloader()
+        
+        comments = []
+        # sort_by=1 (최신순), limit=100 (최대 100개만 수집하여 테스트)
+        generator = downloader.get_comments_from_url(request.url, sort_by=1)
+        
+        count = 0
+        for comment in generator:
+                # if count >= 50: # 성능을 위해 50개로 제한 - User requested removal
+                #    break
+
+                
+            comments.append({
+                "author": comment.get('author', 'Unknown'),
+                "text": comment.get('text', ''),
+                "publish_date": comment.get('time', ''),
+                "author_id": comment.get('channel', ''),
+                "like_count": comment.get('votes', 0)
+            })
+            count += 1
+            
+        logger.info(f"Crawled {len(comments)} comments")
+        
+        return {
+            "status": "success",
+            "video_url": request.url,
+            "count": len(comments),
+            "comments": comments
+        }
+        
+    except Exception as e:
+        logger.error(f"Crawling failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Crawling failed: {str(e)}")
+
+
 
 
 @app.get("/models/info")

@@ -8,12 +8,12 @@ import java.time.Duration;
 
 @Configuration
 public class WebClientConfig {
-    
+
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
-            .setConnectTimeout(Duration.ofSeconds(30))
-            .setReadTimeout(Duration.ofSeconds(30))
-            .build();
+                .setConnectTimeout(Duration.ofSeconds(300))
+                .setReadTimeout(Duration.ofSeconds(300))
+                .build();
     }
 }

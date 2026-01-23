@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { userService } from '../../services/userService';
 import { analysisService } from '../../services/analysisService';
+import { commentService } from '../../services/commentService';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
@@ -602,8 +603,8 @@ function ProfileView() {
 
               {passwordMessage && (
                 <div className={`p-3 rounded-lg text-sm ${passwordMessage.type === 'error'
-                    ? 'bg-red-900/20 text-red-400 border border-red-900/50'
-                    : 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/50'
+                  ? 'bg-red-900/20 text-red-400 border border-red-900/50'
+                  : 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/50'
                   }`}>
                   {passwordMessage.text}
                 </div>
@@ -647,4 +648,167 @@ function InfoItem({ label, value }) {
 // 나머지 뷰는 위와 동일한 다크 테마 컨셉으로 표시 (생략된 뷰들)
 function WritingAssistantView() { return <div className="text-center p-20 text-slate-500">Writing Assistant Module Loading...</div>; }
 function StatisticsView() { return <div className="text-center p-20 text-slate-500">Advanced Analytics Data Preparing...</div>; }
-function CommentManagementView() { return <div className="text-center p-20 text-slate-500">Comment Feed Synchronizing...</div>; }
+// --- [5. Comment Management View] ---
+function CommentManagementView() {
+  const [url, setUrl] = useState('');
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState('');
+
+  // 초기 댓글 목록 로드
+  useEffect(() => {
+    loadComments();
+  }, []);
+
+  const loadComments = async (urlToFilter = lastAnalyzedUrl) => {
+    try {
+      setLoading(true);
+      const data = await commentService.getComments(urlToFilter);
+      setComments(data);
+    } catch (error) {
+      console.error("Failed to load comments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!url.trim()) return;
+
+    setAnalyzing(true);
+    setMessage(null);
+    try {
+      const result = await commentService.crawlAndAnalyze(url);
+      setLastAnalyzedUrl(url); // 마지막 분석 URL 저장
+      setMessage({ type: 'success', text: `수집 완료: ${result.totalCrawled}개, 분석 완료: ${result.analyzedCount}개` });
+      loadComments(url); // 해당 URL로 목록 갱신
+      setUrl('');
+    } catch (error) {
+      setMessage({ type: 'error', text: '분석 요청 실패: ' + (error.response?.data?.error || error.message) });
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('정말 삭제하시겠습니까?')) return;
+    try {
+      await commentService.deleteComment(id);
+      setComments(comments.filter(c => c.commentId !== id));
+    } catch (error) {
+      alert('삭제 실패: ' + error.message);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white">YouTube Comment Analysis</h2>
+          <p className="text-slate-500 text-sm">유튜브 영상의 댓글을 수집하고 AI 유해성 분석을 수행합니다.</p>
+        </div>
+      </div>
+
+      {/* Analysis Input Card */}
+      <Card className="border-blue-900/30 bg-slate-900/80">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <Input
+              placeholder="YouTube Video URL (e.g., https://youtu.be/...)"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleAnalyze}
+              disabled={analyzing || !url}
+              className="w-full md:w-auto min-w-[120px]"
+            >
+              {analyzing ? <span className="animate-spin mr-2">⏳</span> : <Search size={18} className="mr-2" />}
+              {analyzing ? 'Analyzing...' : 'Analyze Now'}
+            </Button>
+          </div>
+          {message && (
+            <div className={`mt-4 p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'}`}>
+              {message.type === 'success' ? <CheckCircle size={16} className="inline mr-2" /> : <AlertTriangle size={16} className="inline mr-2" />}
+              {message.text}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Comments Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            <span>Analyzed Comments ({comments.length})</span>
+            <Button variant="ghost" size="sm" onClick={loadComments}><RotateCcw size={16} /></Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 overflow-hidden">
+          {loading ? (
+            <div className="p-10 text-center text-slate-500">Loading comments...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-800/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="p-4 w-[15%]">Author</th>
+                    <th className="p-4 w-[50%]">Comment</th>
+                    <th className="p-4 w-[15%]">Status</th>
+                    <th className="p-4 w-[10%]">Date</th>
+                    <th className="p-4 w-[10%] text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {comments.length > 0 ? comments.map(comment => (
+                    <tr key={comment.commentId} className="hover:bg-slate-800/30 transition-colors group">
+                      <td className="p-4 align-top">
+                        <div className="font-bold text-slate-200 truncate max-w-[150px]">{comment.authorIdentifier}</div>
+                      </td>
+                      <td className="p-4 align-top">
+                        <p className="text-sm text-slate-300 line-clamp-2">{comment.commentText}</p>
+                      </td>
+                      <td className="p-4 align-top">
+                        {comment.isMalicious ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded bg-red-900/30 text-red-400 text-xs font-bold border border-red-900/50">
+                            <AlertTriangle size={12} className="mr-1" /> Malicious
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-900/30 text-emerald-400 text-xs font-bold border border-emerald-900/50">
+                            <CheckCircle size={12} className="mr-1" /> Clean
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 align-top text-xs text-slate-500">
+                        {new Date(comment.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="p-4 align-top text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(comment.commentId)}
+                          className="text-slate-500 hover:text-red-500"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan="5" className="p-10 text-center text-slate-500">
+                        No comments analyzed yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

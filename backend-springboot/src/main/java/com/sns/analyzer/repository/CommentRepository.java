@@ -10,11 +10,22 @@ import java.util.Optional;
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByPostId(Long postId);
-    Optional<Comment> findByExternalCommentId(String externalCommentId);
+
+    List<Comment> findByUserId(Long userId);
+
+    List<Comment> findByUserIdAndContentUrl(Long userId, String contentUrl);
+
+    List<Comment> findByExternalCommentId(String externalCommentId);
+
     List<Comment> findByIsAnalyzed(Boolean isAnalyzed);
+
     List<Comment> findByIsMalicious(Boolean isMalicious);
+
     List<Comment> findByIsBlacklisted(Boolean isBlacklisted);
+
     List<Comment> findByAuthorIdentifier(String authorIdentifier);
+
     Integer countByPostId(Long postId);
+
     Integer countByPostIdAndIsMalicious(Long postId, Boolean isMalicious);
 }

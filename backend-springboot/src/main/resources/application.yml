@@ -19,13 +19,20 @@ spring:
   # JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: update  # create, update, validate, none
+      ddl-auto: create  # create: drops and re-creates the database schema on startup
     show-sql: true
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MariaDBDialect
+        hbm2ddl:
+          import_files: ""
     open-in-view: false
+
+  # SQL Init Disable
+  sql:
+    init:
+      mode: never
 
   # H2 Console (개발용 - 현재 MariaDB 사용중이므로 비활성화)
   h2:

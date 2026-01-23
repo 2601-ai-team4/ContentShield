@@ -20,18 +20,22 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private final AnalysisResultRepository analysisResultRepository;
+    private final com.sns.analyzer.repository.CommentRepository commentRepository;
 
     public Map<String, Object> getDashboardStats(Long userId) {
         System.out.println("[DEBUG] DashboardService.getDashboardStats called for userId: " + userId);
-        List<AnalysisResult> allResults = analysisResultRepository.findByUserId(userId);
-        System.out.println("[DEBUG] Database returned " + allResults.size() + " results for user " + userId);
 
-        long total = allResults.size();
-        long malicious = allResults.stream()
-                .filter(r -> r.getToxicityScore().compareTo(new BigDecimal("50.0")) > 0)
-                .count();
+        // 1. Comment 엔티티를 사용하여 정확한 통계 계산 (isMalicious 플래그 사용)
+        List<com.sns.analyzer.entity.Comment> userComments = commentRepository.findByUserId(userId);
+        System.out.println("[DEBUG] Found " + userComments.size() + " comments for user " + userId);
+
+        long total = userComments.size();
+        long malicious = userComments.stream().filter(com.sns.analyzer.entity.Comment::getIsMalicious).count();
         long clean = total - malicious;
         double detectionRate = total > 0 ? (malicious * 100.0 / total) : 0.0;
+
+        // 2. 주간 활동 및 최근 알림은 AnalysisResult 사용 (기존 유지)
+        List<AnalysisResult> allResults = analysisResultRepository.findByUserId(userId);
 
         // Weekly Activity (Last 7 days)
         List<Map<String, Object>> weeklyActivity = getWeeklyActivity(allResults);
