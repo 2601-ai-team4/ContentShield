@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import dashboardService from '../../services/dashboardService';
+import ProfileSettings from './ProfileSettings'; // ⭐ 알림 설정이 포함된 ProfileSettings 컴포넌트
 
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
@@ -92,7 +93,7 @@ export default function DashboardV2() {
           {activeTab === 'writing' && <WritingAssistantView />}
           {activeTab === 'templates' && <TemplateView />}
           {activeTab === 'stats' && <StatisticsView />}
-          {activeTab === 'profile' && <ProfileView />}
+          {activeTab === 'profile' && <ProfileSettings />}
         </div>
       </main>
     </div>
