@@ -21,6 +21,7 @@ public class DashboardService {
 
     private final AnalysisResultRepository analysisResultRepository;
     private final com.sns.analyzer.repository.CommentRepository commentRepository;
+    private final BlacklistService blacklistService;
 
     public Map<String, Object> getDashboardStats(Long userId) {
         System.out.println("[DEBUG] DashboardService.getDashboardStats called for userId: " + userId);
@@ -75,7 +76,11 @@ public class DashboardService {
         stats.put("detectionRate", String.format("%.1f%%", detectionRate));
         stats.put("weeklyActivity", weeklyActivity);
         stats.put("notifications", notifications);
-        stats.put("typeBreakdown", typeBreakdown); // 추가됨
+        stats.put("typeBreakdown", typeBreakdown);
+
+        // Blacklist Count
+        int blacklistCount = blacklistService.getUserBlacklist(userId).size();
+        stats.put("blacklistCount", blacklistCount);
 
         return stats;
     }
