@@ -64,5 +64,16 @@ export const commentService = {
             console.error('Error deleting all comments:', error);
             throw error;
         }
+    },
+
+    // 댓글 대량 분석 요청 (세션 내 20개씩 등)
+    analyzeBatch: async (commentIds) => {
+        try {
+            const response = await api.post('/comments/analyze-batch', commentIds);
+            return response.data;
+        } catch (error) {
+            console.error('Error analyzing batch:', error);
+            throw error;
+        }
     }
 };

@@ -61,11 +61,10 @@ public class CommentService {
         List<Map<String, Object>> crawledComments = crawlYoutubeComments(url);
 
         // 2. DB 저장 및 분석
-        return transactionTemplate.execute(status -> {
+        return transactionTemplate.execute(txStatus -> {
             int successCount = 0;
             int failCount = 0;
             int skippedCount = 0;
-            List<AnalysisResult> results = new ArrayList<>();
 
             for (Map<String, Object> c : crawledComments) {
                 try {
@@ -79,19 +78,16 @@ public class CommentService {
 
                     LocalDateTime commentedAt = parseRelativeDate(publishDateStr);
 
-                    // 기간 필터링 적용 (크롤링 시점에서도 필터링)
                     if (commentedAt.isBefore(limitStart) || commentedAt.isAfter(limitEnd)) {
                         continue;
                     }
 
-                    // 중복 체크
                     if (externalId != null && !externalId.isEmpty()
                             && commentRepository.existsByUserIdAndExternalCommentId(userId, externalId)) {
                         skippedCount++;
                         continue;
                     }
 
-                    // 댓글 저장
                     Comment comment = Comment.builder()
                             .userId(userId)
                             .platform("YOUTUBE")
@@ -108,11 +104,7 @@ public class CommentService {
                             .createdAt(LocalDateTime.now().withNano(0))
                             .build();
 
-                    Comment savedComment = commentRepository.save(comment);
-
-                    // 분석 수행
-                    AnalysisResult result = analysisService.analyzeComment(savedComment.getCommentId(), userId);
-                    results.add(result);
+                    commentRepository.save(comment);
                     successCount++;
 
                 } catch (Exception e) {
@@ -123,11 +115,35 @@ public class CommentService {
 
             return Map.of(
                     "totalCrawled", crawledComments.size(),
-                    "analyzedCount", successCount,
+                    "savedCount", successCount,
                     "skippedCount", skippedCount,
-                    "failCount", failCount,
-                    "results", results);
+                    "failCount", failCount);
         });
+    }
+
+    /**
+     * 다수 댓글 대량 분석
+     */
+    public Map<String, Object> analyzeBulk(Long userId, List<Long> commentIds) {
+        int analyzedCount = 0;
+        int errorCount = 0;
+        List<AnalysisResult> results = new ArrayList<>();
+
+        for (Long id : commentIds) {
+            try {
+                AnalysisResult res = analysisService.analyzeComment(id, userId);
+                results.add(res);
+                analyzedCount++;
+            } catch (Exception e) {
+                errorCount++;
+                System.err.println("[ERROR] Failed to analyze comment " + id + ": " + e.getMessage());
+            }
+        }
+
+        return Map.of(
+                "analyzedCount", analyzedCount,
+                "errorCount", errorCount,
+                "results", results);
     }
 
     /**

@@ -1231,7 +1231,9 @@ function CommentManagementView() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-  const pageSize = 20;
+  const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const pageSize = 10;
 
   // 초기 댓글 목록 로드
   useEffect(() => {
@@ -1250,17 +1252,22 @@ function CommentManagementView() {
     try {
       let data;
       if (fromHistory) {
-        // Fetch full history from AnalysisResult table
-        const historyData = await analysisService.getHistory();
-        // Map AnalysisResult fields to Comment UI expected fields
-        data = historyData.map(item => ({
-          commentId: item.analysisId, // Use analysisId as unique key
-          authorIdentifier: item.author || 'Unknown',
-          commentText: item.commentText,
-          isMalicious: item.toxicityScore > 0,
-          commentedAt: item.analyzedAt, // Use analysis time for history
-          toxicityScore: item.toxicityScore
-        }));
+        // Fetch full history from AnalysisResult table (Paginated)
+        const paginatedData = await analysisService.getHistory(currentPage, pageSize);
+
+        // Map Page content to Comment UI fields
+        data = {
+          ...paginatedData,
+          content: paginatedData.content.map(item => ({
+            commentId: item.commentId || item.analysisId,
+            authorIdentifier: item.author || 'Unknown',
+            commentText: item.commentText,
+            isMalicious: item.toxicityScore > 50,
+            isAnalyzed: true, // History is always analyzed
+            commentedAt: item.analyzedAt,
+            toxicityScore: item.toxicityScore
+          }))
+        };
         setLastAnalyzedUrl(''); // Clear current URL context
       } else {
         const targetUrl = overrideUrl !== null ? overrideUrl : lastAnalyzedUrl;
@@ -1275,7 +1282,10 @@ function CommentManagementView() {
       }
 
       if (data && data.content) {
-        setComments(data.content);
+        setComments(data.content.map(c => ({
+          ...c,
+          isAnalyzed: c.isAnalyzed !== undefined ? c.isAnalyzed : (c.toxicityScore !== undefined)
+        })));
         setTotalPages(data.totalPages);
         setTotalElements(data.totalElements);
       } else {
@@ -1298,7 +1308,6 @@ function CommentManagementView() {
     }
   }, [startDate, endDate, filterStatus, currentPage]);
 
-  // 시작 날짜 변경 시 종료 날짜 자동 7일 세팅
   const handleStartDateChange = (e) => {
     const newStart = e.target.value;
     setStartDate(newStart);
@@ -1309,8 +1318,6 @@ function CommentManagementView() {
       const newEnd = date.toISOString().split('T')[0];
       setEndDate(newEnd);
       setMessage({ type: 'success', text: '분석 기간이 시작일로부터 7일로 자동 설정되었습니다.' });
-
-      // 3초 후 메시지 제거
       setTimeout(() => setMessage(null), 3000);
     }
   };
@@ -1321,31 +1328,25 @@ function CommentManagementView() {
       setEndDate(newEnd);
       return;
     }
-
     const start = new Date(startDate);
     const end = new Date(newEnd);
-
-    // 시작일보다 이전 날짜 선택 방지
     if (end < start) {
       setMessage({ type: 'error', text: '종료일은 시작일보다 빠를 수 없습니다.' });
-      setEndDate(startDate); // 시작일과 동일하게 보정
+      setEndDate(startDate);
       return;
     }
-
     const diffTime = end - start;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays > 30) {
-      setMessage({ type: 'error', text: '분석 기간은 최대 30일을 초과할 수 없습니다.' });
-      // 강제로 30일로 맞춤
+    if (diffDays > 7) {
+      setMessage({ type: 'error', text: '분석 기간은 최대 7일을 초과할 수 없습니다.' });
       const maxEnd = new Date(start);
-      maxEnd.setDate(maxEnd.getDate() + 30);
+      maxEnd.setDate(maxEnd.getDate() + 7);
       setEndDate(maxEnd.toISOString().split('T')[0]);
     } else {
       setEndDate(newEnd);
       setMessage(null);
     }
-    setCurrentPage(0); // Reset page on filter change
+    setCurrentPage(0);
   };
 
   const handleAnalyze = async () => {
@@ -1354,57 +1355,61 @@ function CommentManagementView() {
       setMessage({ type: 'error', text: '시작일과 종료일을 입력해주세요.' });
       return;
     }
-
     const start = new Date(startDate);
     const end = new Date(endDate);
-
     if (start > end) {
       setMessage({ type: 'error', text: '시작일이 종료일보다 늦을 수 없습니다.' });
       return;
     }
-
     const diffTime = end - start;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays > 30) {
-      setMessage({ type: 'error', text: '분석 기간은 최대 30일까지 가능합니다.' });
+    if (diffDays > 7) {
+      setMessage({ type: 'error', text: '분석 기간은 최대 7일까지 가능합니다.' });
       return;
     }
-
-    setCurrentPage(0); // Reset page on new analysis
-
+    setCurrentPage(0);
     setAnalyzing(true);
     setLoadingStatus('유튜브 데이터 수집 중...');
     setMessage(null);
 
-    // 단계별 메시지 시뮬레이션
-    const statusTimer = setTimeout(() => setLoadingStatus('AI 유해성 분석 및 필터링 수행 중...'), 3000);
-
     try {
-      const result = await commentService.crawlAndAnalyze(url, startDate, endDate);
-      clearTimeout(statusTimer);
-      setLoadingStatus('분석 완료! 결과 동기화 중...');
-
-      // 사용자 경험을 위해 살짝 지연 후 결과 표시
-      setTimeout(() => {
-        setLastAnalyzedUrl(url); // 마지막 분석 URL 저장
-        setMessage({
-          type: 'success',
-          text: `수집 완료: ${result.totalCrawled}개, 분석 완료: ${result.analyzedCount}개 (필터링 적용됨)`
-        });
-        setCurrentPage(0); // Reset page to 0 before loading
-        loadComments(url); // 해당 URL로 목록 갱신
-      }, 800);
+      const crawlResult = await commentService.crawlAndAnalyze(url, startDate, endDate);
+      setLastAnalyzedUrl(url);
+      setAnalyzing(false);
+      setMessage({ type: 'success', text: `수집 완료: ${crawlResult.savedCount}개. 이제 순차적으로 분석을 시작합니다.` });
+      await loadComments(url);
+      triggerSequentialAnalysis(url, crawlResult.savedCount);
     } catch (error) {
-      clearTimeout(statusTimer);
-      setMessage({ type: 'error', text: '분석 요청 실패: ' + (error.response?.data?.error || error.message) });
-    } finally {
-      // 결과 표시 지연 시간에 맞춰 analyzing 해제
-      setTimeout(() => {
-        setAnalyzing(false);
-        setLoadingStatus('');
-      }, 1000);
+      setAnalyzing(false);
+      setMessage({ type: 'error', text: '수집 실패: ' + (error.response?.data?.error || error.message) });
     }
+  };
+
+  const triggerSequentialAnalysis = async (targetUrl, totalCount) => {
+    if (totalCount === 0) return;
+    setIsBatchAnalyzing(true);
+    setAnalysisProgress(0);
+    const totalPagesToAnalyze = Math.ceil(totalCount / pageSize);
+    for (let i = 0; i < totalPagesToAnalyze; i++) {
+      setLoadingStatus(`분석 진행 중: ${i + 1} / ${totalPagesToAnalyze} 페이지...`);
+      try {
+        const pageData = await commentService.getComments(targetUrl, startDate, endDate, 'all', i, pageSize);
+        const unanalyzedIds = pageData.content.filter(c => !c.isAnalyzed).map(c => c.commentId);
+        if (unanalyzedIds.length > 0) {
+          await commentService.analyzeBatch(unanalyzedIds);
+        }
+        if (currentPage === i) {
+          await loadComments(targetUrl);
+        }
+        setAnalysisProgress(Math.round(((i + 1) / totalPagesToAnalyze) * 100));
+      } catch (error) {
+        console.error(`Page ${i + 1} analysis failed:`, error);
+      }
+    }
+    setIsBatchAnalyzing(false);
+    setLoadingStatus('');
+    setMessage({ type: 'success', text: '모든 댓글의 분석이 완료되었습니다.' });
+    loadComments(targetUrl);
   };
 
   const handleDelete = async (id) => {
@@ -1629,7 +1634,10 @@ function CommentManagementView() {
               {['all', 'clean', 'malicious'].map(status => (
                 <button
                   key={status}
-                  onClick={() => setFilterStatus(status)}
+                  onClick={() => {
+                    setFilterStatus(status);
+                    setCurrentPage(0);
+                  }}
                   className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all uppercase ${filterStatus === status
                     ? 'bg-slate-800 text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-300'
@@ -1642,7 +1650,10 @@ function CommentManagementView() {
 
             {lastAnalyzedUrl && (
               <button
-                onClick={() => loadComments(null, true)}
+                onClick={() => {
+                  setCurrentPage(0);
+                  loadComments(null, true);
+                }}
                 className="h-8 px-3 rounded-lg flex items-center gap-2 text-[10px] font-bold border border-slate-700 hover:bg-slate-800 text-slate-300 transition-all"
               >
                 <Database size={12} /> SHOW ALL HISTORY
@@ -1723,7 +1734,11 @@ function CommentManagementView() {
                       </p>
                     </td>
                     <td className="p-4 align-top text-center">
-                      {comment.isMalicious ? (
+                      {!comment.isAnalyzed ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase animate-pulse">
+                          <RefreshCw size={10} className="animate-spin" /> SCANNING...
+                        </div>
+                      ) : comment.isMalicious ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black uppercase">
                           <AlertTriangle size={10} /> MALICIOUS
                         </div>

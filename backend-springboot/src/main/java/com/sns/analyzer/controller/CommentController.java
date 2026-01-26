@@ -45,6 +45,19 @@ public class CommentController {
         }
     }
 
+    @PostMapping("/analyze-batch")
+    public ResponseEntity<?> analyzeBulk(
+            Authentication authentication,
+            @RequestBody List<Long> commentIds) {
+        try {
+            Long userId = getUserId(authentication);
+            Map<String, Object> result = commentService.analyzeBulk(userId, commentIds);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping
     public ResponseEntity<?> getComments(
             Authentication authentication,
@@ -53,7 +66,7 @@ public class CommentController {
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         try {
             Long userId = getUserId(authentication);
             System.out.println("[DEBUG] getComments called for userId: " + userId + ", url: " + url + ", period: "
