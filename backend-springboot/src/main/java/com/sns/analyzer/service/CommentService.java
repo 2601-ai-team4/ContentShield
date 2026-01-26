@@ -19,6 +19,7 @@ public class CommentService {
 
     private final CommentRepository commentRepository;
     private final AnalysisService analysisService;
+    private final BlockedWordService blockedWordService;  // ← 추가
     private final RestTemplate restTemplate;
 
     @Value("${ai.service.url:http://localhost:8000}")
@@ -29,7 +30,6 @@ public class CommentService {
      */
     public Map<String, Object> crawlAndAnalyze(String url, Long userId) {
         System.out.println("[DEBUG] crawlAndAnalyze called for URL: " + url + ", userId: " + userId);
-        // 1. Python AI 서버에 크롤링 요청
         List<Map<String, Object>> crawledComments = crawlYoutubeComments(url);
 
         int successCount = 0;
@@ -37,18 +37,16 @@ public class CommentService {
 
         List<AnalysisResult> results = new ArrayList<>();
 
-        // 2. DB 저장 및 분석
         for (Map<String, Object> c : crawledComments) {
             try {
                 String text = (String) c.get("text");
                 String author = (String) c.get("author");
                 String externalId = (String) c.get("external_id");
-                // String publishDate = (String) c.get("publish_date");
 
                 if (text == null || text.trim().isEmpty())
                     continue;
 
-                // 중복 체크: 이미 저장된 댓글이면 건너뜀
+                // 중복 체크
                 if (externalId != null && !externalId.isEmpty()
                         && commentRepository.existsByExternalCommentId(externalId)) {
                     System.out.println("[DEBUG] Skipping existing comment: " + externalId);
@@ -60,15 +58,15 @@ public class CommentService {
                         .userId(userId)
                         .platform("YOUTUBE")
                         .contentUrl(url)
-                        .authorName(author) // 필수 필드 설정
+                        .authorName(author)
                         .authorIdentifier(author)
                         .externalCommentId(
                                 externalId != null && !externalId.isEmpty() ? externalId : UUID.randomUUID().toString())
-                        .commentText(text)
-                        .commentedAt(LocalDateTime.now().withNano(0)) // 날짜 절삭
+                        .content(text)  // ← commentText → content
+                        .commentedAt(LocalDateTime.now().withNano(0))
                         .isAnalyzed(false)
                         .isMalicious(false)
-                        .createdAt(LocalDateTime.now().withNano(0)) // 날짜 절삭
+                        .createdAt(LocalDateTime.now().withNano(0))
                         .build();
 
                 Comment savedComment = commentRepository.save(comment);
@@ -121,14 +119,45 @@ public class CommentService {
     }
 
     /**
-     * 댓글 목록 조회
+     * 댓글 목록 조회 (차단 단어 체크 포함)
      */
     @Transactional(readOnly = true)
     public List<Comment> getComments(Long userId, String url) {
+        List<Comment> comments;
+        
         if (url != null && !url.isEmpty()) {
-            return commentRepository.findByUserIdAndContentUrl(userId, url);
+            comments = commentRepository.findByUserIdAndContentUrl(userId, url);
+        } else {
+            comments = commentRepository.findByUserId(userId);
         }
-        return commentRepository.findByUserId(userId);
+        
+        // 🔥 차단 단어 체크
+        List<BlockedWord> blockedWords = blockedWordService.getActiveBlockedWords(userId);
+        
+        for (Comment comment : comments) {
+            checkBlockedWords(comment, blockedWords);
+        }
+        
+        return comments;
+    }
+
+    /**
+     * 댓글에 차단 단어 포함 여부 체크
+     */
+    private void checkBlockedWords(Comment comment, List<BlockedWord> blockedWords) {
+        if (comment.getContent() == null || blockedWords.isEmpty()) {
+            return;
+        }
+        
+        String content = comment.getContent().toLowerCase();
+        
+        for (BlockedWord word : blockedWords) {
+            if (content.contains(word.getWord().toLowerCase())) {
+                comment.setContainsBlockedWord(true);
+                comment.setMatchedBlockedWord(word.getWord());
+                return;
+            }
+        }
     }
 
     /**

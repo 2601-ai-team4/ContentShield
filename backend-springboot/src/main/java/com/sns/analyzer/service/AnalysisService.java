@@ -12,6 +12,7 @@ import org.springframework.http.*;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.List;
 
 @Service
@@ -22,6 +23,7 @@ public class AnalysisService {
     private final CommentRepository commentRepository;
     private final AnalysisResultRepository analysisResultRepository;
     private final BlacklistService blacklistService;
+    private final BlockedWordService blockedWordService;  // 추가!
     private final RestTemplate restTemplate;
     
     @Value("${ai.service.url:http://localhost:8000}")
@@ -34,8 +36,11 @@ public class AnalysisService {
         Comment comment = commentRepository.findById(commentId)
             .orElseThrow(() -> new IllegalArgumentException("Comment not found"));
         
-        // AI 서비스 호출
-        Map<String, Object> aiResult = callAIService(comment.getCommentText());
+        // 사용자 차단 단어 조회
+        List<String> customBlockedWords = blockedWordService.getActiveBlockedWordStrings(userId);
+        
+        // AI 서비스 호출 (차단 단어 포함)
+        Map<String, Object> aiResult = callAIService(comment.getContent(), customBlockedWords);
         
         // 분석 결과 저장
         AnalysisResult result = AnalysisResult.builder()
@@ -59,10 +64,15 @@ public class AnalysisService {
         
         AnalysisResult savedResult = analysisResultRepository.save(result);
         
-        // 댓글 상태 업데이트
+        // 상태 결정 (status 필드 활용)
+        String status = (String) aiResult.getOrDefault("status", "clean");
         Boolean isMalicious = (Boolean) aiResult.getOrDefault("is_malicious", false);
+        Boolean isBlocked = (Boolean) aiResult.getOrDefault("is_blocked", false);
+        
+        // 댓글 상태 업데이트
         comment.setIsAnalyzed(true);
-        comment.setIsMalicious(isMalicious);
+        comment.setIsMalicious(isMalicious || isBlocked);  // blocked도 악성으로 처리
+        //comment.setStatus(status);  // status 필드가 있다면
         comment.setUpdatedAt(LocalDateTime.now());
         commentRepository.save(comment);
         
@@ -75,18 +85,18 @@ public class AnalysisService {
     }
     
     /**
-     * AI 서비스 호출
+     * AI 서비스 호출 (사용자 차단 단어 포함)
      */
-    private Map<String, Object> callAIService(String text) {
+    private Map<String, Object> callAIService(String text, List<String> customBlockedWords) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             
-            Map<String, Object> request = Map.of(
-                "text", text,
-                "language", "ko",
-                "use_dual_model", true
-            );
+            Map<String, Object> request = new HashMap<>();
+            request.put("text", text);
+            request.put("language", "ko");
+            request.put("use_dual_model", true);
+            request.put("custom_blocked_words", customBlockedWords);  // 추가!
             
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
             
@@ -107,6 +117,13 @@ public class AnalysisService {
     }
     
     /**
+     * 기존 callAIService (하위 호환)
+     */
+    private Map<String, Object> callAIService(String text) {
+        return callAIService(text, List.of());
+    }
+    
+    /**
      * 블랙리스트 자동 추가 체크
      */
     private void checkAndAddToBlacklist(Long userId, Comment comment) {
@@ -119,10 +136,6 @@ public class AnalysisService {
         // 이미 블랙리스트에 있는지 확인
         if (blacklistService.isBlacklisted(userId, authorIdentifier)) {
             blacklistService.incrementViolationCount(userId, authorIdentifier);
-        } else {
-            // 이 작성자의 악성 댓글 수 확인
-            // 임계값(3개) 이상이면 자동 블랙리스트 추가
-            // 실제로는 더 복잡한 로직 필요
         }
     }
     
@@ -167,12 +180,15 @@ public class AnalysisService {
         }
     }
 
-    /**윤혜정
+    /**
      * 텍스트 직접 분석 (DB 저장 없이)
      */
     public Map<String, Object> analyzeText(String text, Long userId) {
+        // 사용자 차단 단어 조회
+        List<String> customBlockedWords = blockedWordService.getActiveBlockedWordStrings(userId);
+        
         // AI 서비스 호출
-        Map<String, Object> aiResult = callAIService(text);
+        Map<String, Object> aiResult = callAIService(text, customBlockedWords);
         
         // 응답에 추가 정보 포함
         aiResult.put("userId", userId);

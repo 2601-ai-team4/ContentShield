@@ -1,6 +1,7 @@
 /** [File: DashboardV2.jsx / Date: 2026-01-22 / 설명: 대시보드 실시간 통계 데이터 연동 로직 복구 및 UI 레이아웃 수정] */
 /** [File: DashboardV2.jsx / Date: 2026-01-22 / 작성자: Antigravity / 설명: 대시보드 메뉴별 독립적 Top-level URL 라우팅 적용 및 30초 간격 실시간 데이터 자동 갱신(setInterval) 로직 추가] */
 /** [File: DashboardV2.jsx / Date: 2026-01-22 / 작성자: 윤혜정 / 설명: AI 분석 연동 및 프로필 관리 기능 추가] */
+import { blockedWordService } from '../../services/blockedWordService';
 import React, { useState, useEffect } from 'react';
 import { userService } from '../../services/userService';
 import analysisService from '../../services/analysisService';
@@ -18,7 +19,7 @@ import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import dashboardService from '../../services/dashboardService';
 import ProfileSettings from './ProfileSettings';
 import TemplateManager from './TemplateManager';
-
+import { blacklistService } from '../../services/blacklistService';
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
   <div className={`bg-slate-900 text-slate-100 rounded-xl border border-slate-800 shadow-xl ${className}`}>{children}</div>
@@ -193,7 +194,7 @@ function DashboardView() {
 }
 
 // --- [2. Blacklist View] ---
-function BlacklistView() {
+/*function BlacklistView() {
   const [list, setList] = useState([
     { id: '1', name: 'SpamUser123', identifier: 'UC123abc', count: 5, reason: 'Repeated spam', date: '2024-01-15' },
     { id: '2', name: 'TrollAccount', identifier: 'UC456def', count: 12, reason: 'Hate speech', date: '2024-01-10' }
@@ -236,6 +237,532 @@ function BlacklistView() {
           </tbody>
         </table>
       </CardContent></Card>
+    </div>
+  );
+}
+*/
+// --- [2. Blacklist View] ---
+function BlacklistView() {
+  const [activeTab, setActiveTab] = useState('users'); // 'users' or 'words'
+  
+  return (
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Blacklist Management</h2>
+          <p className="text-slate-500 text-sm">차단된 사용자 및 단어를 관리합니다.</p>
+        </div>
+      </div>
+      
+      {/* 탭 버튼 */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+            activeTab === 'users'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+          }`}
+        >
+          <UserX size={16} className="inline mr-2" />
+          차단 사용자
+        </button>
+        <button
+          onClick={() => setActiveTab('words')}
+          className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+            activeTab === 'words'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+          }`}
+        >
+          <AlertTriangle size={16} className="inline mr-2" />
+          차단 단어
+        </button>
+      </div>
+      
+      {/* 탭 컨텐츠 */}
+      {activeTab === 'users' ? <BlockedUsersTab /> : <BlockedWordsTab />}
+    </div>
+  );
+}
+
+// --- 차단 사용자 탭 ---
+function BlockedUsersTab() {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // 추가 모달 상태
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newAuthorName, setNewAuthorName] = useState('');
+  const [newAuthorId, setNewAuthorId] = useState('');
+  const [newReason, setNewReason] = useState('');
+  const [newCommentText, setNewCommentText] = useState('');
+
+  useEffect(() => {
+    loadBlacklistUsers();
+  }, []);
+
+  const loadBlacklistUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await blacklistService.getBlacklist();
+      setList(data);
+    } catch (err) {
+      console.error('Failed to load blacklist:', err);
+      setError('블랙리스트를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newAuthorName.trim() || !newAuthorId.trim()) {
+      setError('이름과 ID를 모두 입력해주세요.');
+      return;
+    }
+
+    try {
+      const added = await blacklistService.addToBlacklist({
+        authorName: newAuthorName.trim(),
+        authorIdentifier: newAuthorId.trim(),
+        reason: newReason.trim(),
+        platform: 'YOUTUBE',
+        commentText: newCommentText.trim()
+      });
+      setList([...list, added]);
+      setShowAddModal(false);
+      setNewAuthorName('');
+      setNewAuthorId('');
+      setNewReason('');
+      setNewCommentText('');
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.message || '추가에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteUser = async (blacklistId) => {
+    if (!window.confirm('정말 삭제하시겠습니까?')) return;
+    
+    try {
+      await blacklistService.removeFromBlacklist(blacklistId);
+      setList(list.filter(item => item.blacklistId !== blacklistId));
+    } catch (err) {
+      setError(err.response?.data?.error || '삭제에 실패했습니다.');
+    }
+  };
+
+  // 🆕 엑셀 다운로드 함수
+  const handleExportExcel = () => {
+    if (list.length === 0) {
+      alert('다운로드할 데이터가 없습니다.');
+      return;
+    }
+
+    // CSV 헤더
+    const headers = ['사용자명', '사용자ID', '위반횟수', '차단사유', '문제댓글', '등록일시'];
+    
+    // CSV 데이터 행
+    const rows = list.map(item => [
+      item.blockedAuthorName || '',
+      item.blockedAuthorIdentifier || '',
+      item.violationCount || 0,
+      item.reason || '',
+      item.commentText ? `"${item.commentText.replace(/"/g, '""')}"` : '',
+      item.createdAt ? new Date(item.createdAt).toLocaleString('ko-KR') : ''
+    ]);
+
+    // CSV 문자열 생성
+    const csvContent = '\uFEFF' + [headers, ...rows]
+      .map(row => row.map(cell => 
+        typeof cell === 'string' && (cell.includes(',') || cell.includes('\n')) 
+          ? `"${cell}"` 
+          : cell
+      ).join(','))
+      .join('\n');
+
+    // 다운로드
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `blacklist_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  // 🆕 날짜 포맷 함수
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return <div className="text-center p-10 text-slate-400">로딩 중...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 에러 메시지 */}
+      {error && (
+        <div className="p-3 rounded-lg bg-red-900/20 text-red-400 border border-red-900/50 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* 추가 모달 */}
+      {showAddModal && (
+        <Card className="border-blue-900/50">
+          <CardContent className="p-4 space-y-4">
+            <h3 className="text-lg font-bold text-white">블랙리스트 추가</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">사용자 이름 *</label>
+                <Input
+                  value={newAuthorName}
+                  onChange={(e) => setNewAuthorName(e.target.value)}
+                  placeholder="예: @lovenjoy68"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">사용자 ID *</label>
+                <Input
+                  value={newAuthorId}
+                  onChange={(e) => setNewAuthorId(e.target.value)}
+                  placeholder="예: UC1234abc..."
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">차단 사유</label>
+              <Input
+                value={newReason}
+                onChange={(e) => setNewReason(e.target.value)}
+                placeholder="예: 반복적인 악성 댓글"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">문제 댓글 내용</label>
+              <Textarea
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                placeholder="차단 사유가 된 댓글 내용..."
+                className="h-20"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => {
+                setShowAddModal(false);
+                setNewAuthorName('');
+                setNewAuthorId('');
+                setNewReason('');
+                setNewCommentText('');
+                setError(null);
+              }}>
+                취소
+              </Button>
+              <Button onClick={handleAddUser}>
+                <Plus size={16} className="mr-1" /> 추가
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="p-0 overflow-hidden">
+          {/* 🆕 버튼 영역: Add User + 엑셀 다운로드 */}
+          <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+            <div className="text-sm text-slate-400">
+              총 <span className="text-white font-bold">{list.length}</span>명
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="gap-2" onClick={handleExportExcel}>
+                <FileText size={16}/> 엑셀 다운로드
+              </Button>
+              <Button className="gap-2" onClick={() => setShowAddModal(true)}>
+                <Plus size={16}/> Add User
+              </Button>
+            </div>
+          </div>
+          
+          {list.length === 0 ? (
+            <div className="text-center p-10 text-slate-500">
+              등록된 블랙리스트가 없습니다.
+            </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead className="bg-slate-800/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="p-4">User Info</th>
+                  <th className="p-4">Violations</th>
+                  <th className="p-4">Reason</th>
+                  <th className="p-4">Comment</th> 
+                  <th className="p-4 text-right">등록일시</th>
+                  <th className="p-4 text-right">해제</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {list.map(item => (
+                  <tr key={item.blacklistId} className="hover:bg-slate-800/30 transition-colors group">
+                    <td className="p-4">
+                      <div className="font-bold text-slate-200">{item.blockedAuthorName}</div>
+                      <div className="text-xs text-slate-500 font-mono">{item.blockedAuthorIdentifier}</div>
+                    </td>
+                    <td className="p-4">
+                      <span className="px-2 py-1 rounded bg-red-900/20 text-red-400 text-xs font-bold border border-red-900/30">
+                        {item.violationCount} Hits
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-400 text-sm max-w-[150px]">
+                      <p className="line-clamp-2">{item.reason || '-'}</p>
+                    </td>
+                    <td className="p-4 text-slate-400 text-sm max-w-[250px]">
+                      {item.commentText ? (
+                        <p className="line-clamp-2 text-xs bg-slate-800/50 p-2 rounded border border-slate-700" title={item.commentText}>
+                          "{item.commentText}"
+                        </p>
+                      ) : (
+                        <span className="text-slate-600">-</span>
+                      )}
+                    </td>
+                    {/* 🆕 등록일시 컬럼 */}
+                    <td className="p-4 text-right text-xs text-slate-500">
+                      {formatDateTime(item.createdAt)}
+                    </td>
+                    {/* 🆕 해제 버튼 */}
+                    <td className="p-4 text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDeleteUser(item.blacklistId)}
+                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400"
+                        title="블랙리스트 해제"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// --- 차단 단어 탭 ---
+function BlockedWordsTab() {
+  const [words, setWords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newWord, setNewWord] = useState('');
+  const [newCategory, setNewCategory] = useState('PROFANITY');
+  const [newSeverity, setNewSeverity] = useState('MEDIUM');
+  const [error, setError] = useState(null);
+
+  const categories = [
+    { value: 'PROFANITY', label: '욕설' },
+    { value: 'HATE', label: '혐오' },
+    { value: 'VIOLENCE', label: '폭력' },
+    { value: 'SEXUAL', label: '성적' },
+    { value: 'SPAM', label: '스팸' },
+  ];
+
+  const severities = [
+    { value: 'LOW', label: '낮음' },
+    { value: 'MEDIUM', label: '보통' },
+    { value: 'HIGH', label: '높음' },
+    { value: 'CRITICAL', label: '심각' },
+  ];
+
+  useEffect(() => {
+    loadBlockedWords();
+  }, []);
+
+  const loadBlockedWords = async () => {
+    try {
+      setLoading(true);
+      const data = await blockedWordService.getBlockedWords();
+      setWords(data);
+    } catch (err) {
+      console.error('Failed to load blocked words:', err);
+      setError('차단 단어를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddWord = async () => {
+    if (!newWord.trim()) return;
+    
+    try {
+      const added = await blockedWordService.addBlockedWord(newWord.trim(), newCategory, newSeverity);
+      setWords([...words, added]);
+      setNewWord('');
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || '추가에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteWord = async (wordId) => {
+    try {
+      await blockedWordService.deleteBlockedWord(wordId);
+      setWords(words.filter(w => w.wordId !== wordId));
+    } catch (err) {
+      setError(err.response?.data?.error || '삭제에 실패했습니다.');
+    }
+  };
+
+  const handleToggleWord = async (wordId) => {
+    try {
+      const updated = await blockedWordService.toggleBlockedWord(wordId);
+      setWords(words.map(w => w.wordId === wordId ? updated : w));
+    } catch (err) {
+      setError(err.response?.data?.error || '변경에 실패했습니다.');
+    }
+  };
+
+  const getCategoryLabel = (value) => categories.find(c => c.value === value)?.label || value;
+  const getSeverityColor = (severity) => {
+    const colors = {
+      LOW: 'text-green-400 bg-green-900/20 border-green-900/30',
+      MEDIUM: 'text-yellow-400 bg-yellow-900/20 border-yellow-900/30',
+      HIGH: 'text-orange-400 bg-orange-900/20 border-orange-900/30',
+      CRITICAL: 'text-red-400 bg-red-900/20 border-red-900/30',
+    };
+    return colors[severity] || colors.MEDIUM;
+  };
+
+  if (loading) {
+    return <div className="text-center p-10 text-slate-400">로딩 중...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 에러 메시지 */}
+      {error && (
+        <div className="p-3 rounded-lg bg-red-900/20 text-red-400 border border-red-900/50 text-sm">
+          {error}
+        </div>
+      )}
+      
+      {/* 단어 추가 폼 */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex gap-3 items-end flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs text-slate-500 mb-1">차단 단어</label>
+              <Input
+                value={newWord}
+                onChange={(e) => setNewWord(e.target.value)}
+                placeholder="차단할 단어 입력..."
+                onKeyPress={(e) => e.key === 'Enter' && handleAddWord()}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">카테고리</label>
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="h-10 rounded-lg border border-slate-800 bg-slate-950 px-3 text-sm text-slate-200"
+              >
+                {categories.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">심각도</label>
+              <select
+                value={newSeverity}
+                onChange={(e) => setNewSeverity(e.target.value)}
+                className="h-10 rounded-lg border border-slate-800 bg-slate-950 px-3 text-sm text-slate-200"
+              >
+                {severities.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+            <Button onClick={handleAddWord} className="gap-2">
+              <Plus size={16} /> 추가
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 단어 목록 */}
+      <Card>
+        <CardContent className="p-0 overflow-hidden">
+          {words.length === 0 ? (
+            <div className="text-center p-10 text-slate-500">
+              등록된 차단 단어가 없습니다.
+            </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead className="bg-slate-800/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="p-4">단어</th>
+                  <th className="p-4">카테고리</th>
+                  <th className="p-4">심각도</th>
+                  <th className="p-4">상태</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {words.map(word => (
+                  <tr key={word.wordId} className={`hover:bg-slate-800/30 transition-colors group ${!word.isActive ? 'opacity-50' : ''}`}>
+                    <td className="p-4">
+                      <span className="font-bold text-slate-200">{word.word}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="px-2 py-1 rounded bg-blue-900/20 text-blue-400 text-xs border border-blue-900/30">
+                        {getCategoryLabel(word.category)}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded text-xs border ${getSeverityColor(word.severity)}`}>
+                        {severities.find(s => s.value === word.severity)?.label}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => handleToggleWord(word.wordId)}
+                        className={`px-2 py-1 rounded text-xs ${
+                          word.isActive 
+                            ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30' 
+                            : 'bg-slate-800 text-slate-500 border border-slate-700'
+                        }`}
+                      >
+                        {word.isActive ? '활성' : '비활성'}
+                      </button>
+                    </td>
+                    <td className="p-4 text-right">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => handleDeleteWord(word.wordId)}
+                        className="opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={16} className="text-red-500"/>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -410,6 +937,43 @@ function ScoreItem({ label, score }) {
         <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${percentage}%` }} />
       </div>
     </div>
+  );
+}
+
+// 🆕 Status Badge Component (이 함수 추가!)
+function StatusBadge({ status, isMalicious, isBlocked }) {
+  let finalStatus = status;
+  if (!finalStatus) {
+    if (isBlocked) finalStatus = 'blocked';
+    else if (isMalicious) finalStatus = 'malicious';
+    else finalStatus = 'clean';
+  }
+
+  const statusConfig = {
+    clean: {
+      label: 'Clean',
+      icon: CheckCircle,
+      className: 'bg-emerald-900/30 text-emerald-400 border-emerald-900/50'
+    },
+    malicious: {
+      label: 'Malicious',
+      icon: AlertTriangle,
+      className: 'bg-red-900/30 text-red-400 border-red-900/50'
+    },
+    blocked: {
+      label: '차단단어',  // 🆕 한글로 변경!
+      icon: AlertTriangle,
+      className: 'bg-orange-900/30 text-orange-400 border-orange-900/50'
+    }
+  };
+
+  const config = statusConfig[finalStatus] || statusConfig.clean;
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold border ${config.className}`}>
+      <Icon size={12} className="mr-1" /> {config.label}
+    </span>
   );
 }
 
@@ -685,9 +1249,9 @@ function CommentManagementView() {
     setMessage(null);
     try {
       const result = await commentService.crawlAndAnalyze(url);
-      setLastAnalyzedUrl(url); // 마지막 분석 URL 저장
+      setLastAnalyzedUrl(url);
       setMessage({ type: 'success', text: `수집 완료: ${result.totalCrawled}개, 분석 완료: ${result.analyzedCount}개` });
-      loadComments(url); // 해당 URL로 목록 갱신
+      loadComments(url);
       setUrl('');
     } catch (error) {
       setMessage({ type: 'error', text: '분석 요청 실패: ' + (error.response?.data?.error || error.message) });
@@ -704,6 +1268,35 @@ function CommentManagementView() {
     } catch (error) {
       alert('삭제 실패: ' + error.message);
     }
+  };
+
+  // 🆕 블랙리스트 추가 함수
+  const handleAddToBlacklist = async (comment) => {
+    const authorName = comment.authorName || comment.authorIdentifier;
+    const authorId = comment.authorIdentifier;
+    
+    if (!window.confirm(`"${authorName}"을(를) 블랙리스트에 추가하시겠습니까?`)) return;
+    
+    try {
+      await blacklistService.addToBlacklist({
+        authorName: authorName,
+        authorIdentifier: authorId,
+        reason: '악성 댓글 작성',
+        platform: 'YOUTUBE',
+        commentText: comment.commentText
+      });
+      setMessage({ type: 'success', text: `"${authorName}"이(가) 블랙리스트에 추가되었습니다.` });
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || '블랙리스트 추가 실패';
+      setMessage({ type: 'error', text: errorMsg });
+    }
+  };
+
+  // 🆕 ID 복사 함수
+  const handleCopyId = (id) => {
+    navigator.clipboard.writeText(id);
+    setMessage({ type: 'success', text: 'ID가 클립보드에 복사되었습니다.' });
+    setTimeout(() => setMessage(null), 2000);
   };
 
   return (
@@ -748,7 +1341,7 @@ function CommentManagementView() {
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
             <span>Analyzed Comments ({comments.length})</span>
-            <Button variant="ghost" size="sm" onClick={loadComments}><RotateCcw size={16} /></Button>
+            <Button variant="ghost" size="sm" onClick={() => loadComments()}><RotateCcw size={16} /></Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-hidden">
@@ -759,45 +1352,76 @@ function CommentManagementView() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-800/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
                   <tr>
-                    <th className="p-4 w-[15%]">Author</th>
-                    <th className="p-4 w-[50%]">Comment</th>
-                    <th className="p-4 w-[15%]">Status</th>
+                    <th className="p-4 w-[18%]">Author</th>
+                    <th className="p-4 w-[42%]">Comment</th>
+                    <th className="p-4 w-[12%]">Status</th>
                     <th className="p-4 w-[10%]">Date</th>
-                    <th className="p-4 w-[10%] text-right">Actions</th>
+                    <th className="p-4 w-[18%] text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {comments.length > 0 ? comments.map(comment => (
                     <tr key={comment.commentId} className="hover:bg-slate-800/30 transition-colors group">
+                      {/* 🆕 Author 컬럼: 이름 + ID + 복사버튼 */}
                       <td className="p-4 align-top">
-                        <div className="font-bold text-slate-200 truncate max-w-[150px]">{comment.authorIdentifier}</div>
+                        <div className="font-bold text-slate-200 truncate max-w-[150px]">
+                          {comment.authorName || comment.authorIdentifier}
+                        </div>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span 
+                            className="text-xs text-slate-500 font-mono truncate max-w-[120px]" 
+                            title={comment.authorIdentifier}
+                          >
+                            {comment.authorIdentifier?.substring(0, 15)}...
+                          </span>
+                          <button 
+                            onClick={() => handleCopyId(comment.authorIdentifier)}
+                            className="text-slate-600 hover:text-blue-400 transition-colors"
+                            title="ID 복사"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
                       </td>
                       <td className="p-4 align-top">
                         <p className="text-sm text-slate-300 line-clamp-2">{comment.commentText}</p>
                       </td>
                       <td className="p-4 align-top">
-                        {comment.isMalicious ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded bg-red-900/30 text-red-400 text-xs font-bold border border-red-900/50">
-                            <AlertTriangle size={12} className="mr-1" /> Malicious
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-900/30 text-emerald-400 text-xs font-bold border border-emerald-900/50">
-                            <CheckCircle size={12} className="mr-1" /> Clean
-                          </span>
-                        )}
+                        <StatusBadge 
+                          status={comment.status} 
+                          isMalicious={comment.isMalicious} 
+                          isBlocked={comment.containsBlockedWord}
+                        />
                       </td>
                       <td className="p-4 align-top text-xs text-slate-500">
                         {new Date(comment.createdAt).toLocaleDateString()}
                       </td>
+                      {/* 🆕 Actions 컬럼: 블랙리스트 추가 + 삭제 */}
                       <td className="p-4 align-top text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(comment.commentId)}
-                          className="text-slate-500 hover:text-red-500"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {/* 블랙리스트 추가 버튼 (악성 댓글만 표시) */}
+                          {comment.isMalicious && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAddToBlacklist(comment)}
+                              className="text-slate-500 hover:text-orange-400 opacity-0 group-hover:opacity-100"
+                              title="블랙리스트 추가"
+                            >
+                              <UserX size={16} />
+                            </Button>
+                          )}
+                          {/* 삭제 버튼 */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(comment.commentId)}
+                            className="text-slate-500 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                            title="삭제"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   )) : (
