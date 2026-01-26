@@ -25,17 +25,31 @@ public class DashboardService {
     public Map<String, Object> getDashboardStats(Long userId) {
         System.out.println("[DEBUG] DashboardService.getDashboardStats called for userId: " + userId);
 
-        // 1. Comment 엔티티를 사용하여 정확한 통계 계산 (isMalicious 플래그 사용)
-        List<com.sns.analyzer.entity.Comment> userComments = commentRepository.findByUserId(userId);
-        System.out.println("[DEBUG] Found " + userComments.size() + " comments for user " + userId);
+        // 1. AnalysisResult 엔티티를 사용하여 전체 히스토리 통계 계산
+        // (Comment 테이블은 현재 세션만 유지하므로, 전체 통계는 AnalysisResult를 사용해야 함)
+        List<AnalysisResult> allResults = analysisResultRepository.findByUserId(userId);
+        System.out.println("[DEBUG] Found " + allResults.size() + " analysis results for user " + userId);
 
-        long total = userComments.size();
-        long malicious = userComments.stream().filter(com.sns.analyzer.entity.Comment::getIsMalicious).count();
+        long total = allResults.size();
+        long malicious = allResults.stream()
+                .filter(r -> Boolean.TRUE.equals(r.isMalicious())).count();
         long clean = total - malicious;
         double detectionRate = total > 0 ? (malicious * 100.0 / total) : 0.0;
 
-        // 2. 주간 활동 및 최근 알림은 AnalysisResult 사용 (기존 유지)
-        List<AnalysisResult> allResults = analysisResultRepository.findByUserId(userId);
+        // 2. 주간 활동 및 최근 알림도 AnalysisResult 사용 (기존 유지)
+
+        // 3. 유형별 분석 현황 (Type Breakdown)
+        // [수정] DB에 저장된 카테고리가 'safe'라도 점수가 0보다 크면 'moderately_toxic'으로 집계 (카드 숫자와 차트 일치)
+        Map<String, Long> typeBreakdown = allResults.stream()
+                .collect(Collectors.groupingBy(r -> {
+                    boolean isEffectiveMalicious = r.getToxicityScore() != null
+                            && r.getToxicityScore().compareTo(BigDecimal.ZERO) > 0;
+
+                    if (isEffectiveMalicious && "safe".equalsIgnoreCase(r.getCategory())) {
+                        return "moderately_toxic";
+                    }
+                    return r.getCategory();
+                }, Collectors.counting()));
 
         // Weekly Activity (Last 7 days)
         List<Map<String, Object>> weeklyActivity = getWeeklyActivity(allResults);
@@ -61,6 +75,7 @@ public class DashboardService {
         stats.put("detectionRate", String.format("%.1f%%", detectionRate));
         stats.put("weeklyActivity", weeklyActivity);
         stats.put("notifications", notifications);
+        stats.put("typeBreakdown", typeBreakdown); // 추가됨
 
         return stats;
     }

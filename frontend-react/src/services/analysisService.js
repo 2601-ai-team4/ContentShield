@@ -403,6 +403,7 @@ export default {
   // 기존 API
   analyzeText,
   analyzeBatch,
+  getHistory,
 
   // AI Assistant API
   assistantAnalyze,

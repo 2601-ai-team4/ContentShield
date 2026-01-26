@@ -26,12 +26,14 @@ public class CommentController {
         try {
             Long userId = getUserId(authentication);
             String url = request.get("url");
+            String startDate = request.get("startDate");
+            String endDate = request.get("endDate");
 
             if (url == null || url.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "URL is required"));
             }
 
-            Map<String, Object> result = commentService.crawlAndAnalyze(url, userId);
+            Map<String, Object> result = commentService.crawlAndAnalyze(url, userId, startDate, endDate);
             return ResponseEntity.ok(result);
 
         } catch (Exception e) {
@@ -43,12 +45,23 @@ public class CommentController {
     @GetMapping
     public ResponseEntity<?> getComments(
             Authentication authentication,
-            @RequestParam(required = false) String url) {
+            @RequestParam(required = false) String url,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String status) {
         try {
             Long userId = getUserId(authentication);
-            System.out.println("[DEBUG] getComments called for userId: " + userId + ", url: " + url);
-            List<Comment> comments = commentService.getComments(userId, url);
-            System.out.println("[DEBUG] Found " + comments.size() + " comments");
+            System.out.println("[DEBUG] getComments called for userId: " + userId + ", url: " + url + ", period: "
+                    + startDate + "~" + endDate + ", status: " + status);
+
+            Boolean isMalicious = null;
+            if ("malicious".equalsIgnoreCase(status)) {
+                isMalicious = true;
+            } else if ("clean".equalsIgnoreCase(status)) {
+                isMalicious = false;
+            }
+
+            List<Comment> comments = commentService.getComments(userId, url, startDate, endDate, isMalicious);
             return ResponseEntity.ok(comments);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -60,6 +73,28 @@ public class CommentController {
         try {
             commentService.deleteComment(commentId);
             return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/delete-batch")
+    public ResponseEntity<?> deleteComments(@RequestBody List<Long> commentIds) {
+        try {
+            commentService.deleteComments(commentIds);
+            return ResponseEntity.ok(Map.of("message", "Deleted " + commentIds.size() + " comments successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/delete-all")
+    public ResponseEntity<?> deleteAllComments(Authentication authentication,
+            @RequestParam(required = false) String url) {
+        try {
+            Long userId = getUserId(authentication);
+            commentService.deleteAllComments(userId, url);
+            return ResponseEntity.ok(Map.of("message", "Deleted all comments successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

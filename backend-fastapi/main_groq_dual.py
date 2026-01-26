@@ -181,7 +181,7 @@ class GroqDualModelAnalyzer:
         self.blocked_words = {
             "ko": [
                 "바보", "멍청이", "병신", "개새끼", "씨발", "지랄", "미친",
-                "죽여", "죽일", "때려", "혐오", "차별", "꺼져", "닥쳐"
+                "죽여", "죽일", "때려", "혐오", "차별", "꺼져", "닥쳐","개자식","양아치"
             ],
             "en": [
                 "stupid", "idiot", "fuck", "shit", "kill", "hate", "damn"
@@ -378,6 +378,11 @@ Respond in valid JSON format only, no markdown:
                 )
             
             if response.status_code == 200:
+                # [Rate Limit Logging]
+                remaining_tokens = response.headers.get("x-ratelimit-remaining-tokens", "unknown")
+                remaining_requests = response.headers.get("x-ratelimit-remaining-requests", "unknown")
+                logger.info(f"⚡ Groq Rate Limit Info: Remaining Tokens={remaining_tokens}, Requests={remaining_requests}")
+
                 result = response.json()
                 content = result["choices"][0]["message"]["content"]
                 
@@ -473,7 +478,7 @@ Respond in valid JSON format only, no markdown:
             sexual = max(sexual, 85)
         
         is_malicious = (
-            toxicity > 50.0 or
+            toxicity > 0 or  # STRICT POLICY: Any score > 0 is malicious
             hate_speech > 60.0 or
             profanity > 70.0 or
             threat > 40.0 or
@@ -495,7 +500,7 @@ Respond in valid JSON format only, no markdown:
             category = "profanity"
         elif toxicity > 70:
             category = "highly_toxic"
-        elif toxicity > 40:
+        elif toxicity > 0:  # STRICT POLICY
             category = "moderately_toxic"
         else:
             category = "safe"
@@ -558,17 +563,15 @@ Respond in valid JSON format only, no markdown:
     
     def _fallback_analysis(self, text: str) -> Dict[str, Any]:
         """Llama 폴백"""
-        text_length = len(text)
-        base_score = min(text_length * 2, 100)
-        
+        # API 오류 시 '안전'으로 처리 (길이 기반 판정 제거)
         return {
-            "toxicity_score": base_score,
-            "hate_speech_score": max(0, base_score - 30),
-            "profanity_score": max(0, base_score - 20),
-            "threat_score": max(0, base_score - 40),
-            "violence_score": max(0, base_score - 35),
-            "sexual_score": max(0, base_score - 45),
-            "reasoning": "Fallback analysis",
+            "toxicity_score": 0,
+            "hate_speech_score": 0,
+            "profanity_score": 0,
+            "threat_score": 0,
+            "violence_score": 0,
+            "sexual_score": 0,
+            "reasoning": "Fallback analysis (API Unavailable) - Assumed Safe",
             "llama_success": False
         }
     
