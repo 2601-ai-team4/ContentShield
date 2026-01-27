@@ -18,8 +18,8 @@ export const analyzeComment = async (commentId) => {
   return response.json();
 }
 
-export const getHistory = async () => {
-  const response = await fetch(`${SPRING_API_URL}/analysis/history`);
+export const getHistory = async (page = 0, size = 20) => {
+  const response = await fetch(`${SPRING_API_URL}/analysis/history?page=${page}&size=${size}`);
   if (!response.ok) throw new Error('Failed to fetch history');
   return response.json();
 }

@@ -2,6 +2,8 @@
 package com.sns.analyzer.repository;
 
 import com.sns.analyzer.entity.AnalysisResult;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +19,8 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, 
     Optional<AnalysisResult> findByCommentId(Long commentId);
 
     List<AnalysisResult> findByUserId(Long userId);
+
+    Page<AnalysisResult> findByUserId(Long userId, Pageable pageable);
 
     void deleteByUserId(Long userId); // 전체 삭제용
 
