@@ -53,7 +53,8 @@ public class DashboardService {
                 }, Collectors.counting()));
 
         // Weekly Activity (Last 7 days)
-        List<Map<String, Object>> weeklyActivity = getWeeklyActivity(allResults);
+        List<Map<String, Object>> weeklyActivity = calculateWeeklyActivity(allResults, false);
+        List<Map<String, Object>> weeklyMaliciousActivity = calculateWeeklyActivity(allResults, true);
 
         // Recent Notifications (Last 5)
         List<Map<String, Object>> notifications = allResults.stream()
@@ -75,6 +76,7 @@ public class DashboardService {
         stats.put("clean", clean);
         stats.put("detectionRate", String.format("%.1f%%", detectionRate));
         stats.put("weeklyActivity", weeklyActivity);
+        stats.put("weeklyMaliciousActivity", weeklyMaliciousActivity);
         stats.put("notifications", notifications);
         stats.put("typeBreakdown", typeBreakdown);
 
@@ -85,10 +87,11 @@ public class DashboardService {
         return stats;
     }
 
-    private List<Map<String, Object>> getWeeklyActivity(List<AnalysisResult> results) {
+    private List<Map<String, Object>> calculateWeeklyActivity(List<AnalysisResult> results, boolean onlyMalicious) {
         LocalDate today = LocalDate.now();
         Map<String, Long> countsByDate = results.stream()
                 .filter(r -> r.getAnalyzedAt().isAfter(today.minusDays(7).atStartOfDay()))
+                .filter(r -> !onlyMalicious || Boolean.TRUE.equals(r.isMalicious()))
                 .collect(Collectors.groupingBy(
                         r -> r.getAnalyzedAt().toLocalDate().toString(),
                         Collectors.counting()));

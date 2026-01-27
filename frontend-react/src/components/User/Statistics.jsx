@@ -130,12 +130,12 @@ const Statistics = () => {
         <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden">
           <div className="p-6 border-b border-slate-800">
             <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <Activity size={20} className="text-emerald-500" /> 주간 분석 추이
+              <Activity size={20} className="text-red-500" /> 악성 댓글 분석 추이
             </h3>
           </div>
           <div className="p-6 h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData}>
+              <BarChart data={stats.weeklyMaliciousActivity || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
@@ -143,7 +143,7 @@ const Statistics = () => {
                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
                   cursor={{ fill: '#1e293b' }}
                 />
-                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="count" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -160,7 +160,7 @@ function DashboardView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Weekly Activity</CardTitle></CardHeader>
+          <CardHeader><CardTitle>주간 분석 추이</CardTitle></CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.weeklyActivity}>
