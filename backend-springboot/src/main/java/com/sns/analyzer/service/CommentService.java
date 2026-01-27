@@ -66,6 +66,9 @@ public class CommentService {
             int failCount = 0;
             int skippedCount = 0;
 
+            // 🔥 차단 단어 목록 미리 조회 (루프 최적화)
+            List<BlockedWord> blockedWords = blockedWordService.getActiveBlockedWords(userId);
+
             for (Map<String, Object> c : crawledComments) {
                 try {
                     String text = (String) c.get("text");
@@ -82,10 +85,19 @@ public class CommentService {
                         continue;
                     }
 
-                    if (externalId != null && !externalId.isEmpty()
-                            && commentRepository.existsByUserIdAndExternalCommentId(userId, externalId)) {
-                        skippedCount++;
-                        continue;
+                    // 🔥 차단 단어 체크 (저장 시점)
+                    boolean isBlocked = false;
+                    String matchedWord = null;
+
+                    if (text != null) {
+                        String lowerText = text.toLowerCase();
+                        for (BlockedWord bw : blockedWords) {
+                            if (lowerText.contains(bw.getWord().toLowerCase())) {
+                                isBlocked = true;
+                                matchedWord = bw.getWord();
+                                break;
+                            }
+                        }
                     }
 
                     Comment comment = Comment.builder()
@@ -100,9 +112,15 @@ public class CommentService {
                             .content(text)
                             .commentedAt(commentedAt)
                             .isAnalyzed(false)
-                            .isMalicious(false)
+                            .isMalicious(isBlocked) // 🔥 차단 단어 포함 시 true
+                            .isBlacklisted(isBlocked) // 히스토리 호환성
                             .createdAt(LocalDateTime.now().withNano(0))
                             .build();
+
+                    if (isBlocked) {
+                        comment.setContainsBlockedWord(true);
+                        comment.setMatchedBlockedWord(matchedWord);
+                    }
 
                     commentRepository.save(comment);
                     successCount++;
@@ -275,7 +293,7 @@ public class CommentService {
     }
 
     /**
-     * 댓글에 차단 단어 포함 여부 체크
+     * 댓글에 차단 단어 포함 여부 체크 및 상태 업데이트 (조회 시 시각적 표시용)
      */
     private void checkBlockedWords(Comment comment, List<BlockedWord> blockedWords) {
         if (comment.getContent() == null || blockedWords.isEmpty()) {
@@ -288,6 +306,8 @@ public class CommentService {
             if (content.contains(word.getWord().toLowerCase())) {
                 comment.setContainsBlockedWord(true);
                 comment.setMatchedBlockedWord(word.getWord());
+                // 조회 시점에도 실시간으로 차단 단어 포함 여부를 보고 악성으로 간주하도록 함
+                comment.setIsMalicious(true);
                 return;
             }
         }
