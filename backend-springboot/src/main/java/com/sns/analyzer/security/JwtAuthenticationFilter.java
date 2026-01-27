@@ -22,6 +22,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
 
+    // ===== #장소영 JWT 필터 예외 처리 시작 =====
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+
+        // 로그인/회원가입 등은 토큰 없이 접근해야 하므로 JWT 필터 스킵
+        if (path.startsWith("/api/auth/")) return true;
+
+        // 프리플라이트 요청 스킵 (CORS)
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
+
+        return false;
+    }
+    // ===== #장소영 JWT 필터 예외 처리 끝 =====
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -31,11 +46,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
                 String username = jwtTokenProvider.getUsernameFromToken(jwt);
 
-                // 권한 정보는 실제 운영 시 DB 조회가 필요할 수 있으나, 
+                // 권한 정보는 실제 운영 시 DB 조회가 필요할 수 있으나,
                 // 토큰 자체의 정보를 믿고 인증 객체를 생성합니다.
-                UsernamePasswordAuthenticationToken authentication = 
+                UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(username, null, null);
-                
+
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
