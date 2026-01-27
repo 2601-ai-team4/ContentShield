@@ -1732,13 +1732,28 @@ function CommentManagementView() {
                         checked={selectedIds.includes(comment.commentId)}
                         onChange={() => toggleSelect(comment.commentId)}
                       />
+                      
                     </td>
                     <td className="p-4 align-top">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">{comment.authorIdentifier}</span>
-                        <span className="text-[10px] text-slate-600 font-mono tracking-tighter">YOUTUBE_USER</span>
-                      </div>
-                    </td>
+  <div className="flex items-center gap-2">
+    <div className="flex flex-col">
+      <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
+        {comment.authorIdentifier}
+      </span>
+      <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
+        YOUTUBE_USER
+      </span>
+    </div>
+    {/* ID 복사 버튼 - 오른쪽에 배치 */}
+    <button
+      onClick={() => handleCopyId(comment.authorIdentifier)}
+      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
+      title="ID 복사"
+    >
+      <Copy size={14} />
+    </button>
+  </div>
+</td>
                     <td className="p-4 align-top">
                       <p className="text-sm text-slate-300 leading-relaxed line-clamp-2 max-w-xl group-hover:line-clamp-none transition-all duration-300">
                         {comment.commentText}
