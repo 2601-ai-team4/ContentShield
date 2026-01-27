@@ -13,13 +13,15 @@ export const commentService = {
     },
 
     // 댓글 목록 조회
-    getComments: async (url, startDate, endDate, status) => {
+    getComments: async (url, startDate, endDate, status, page = 0, size = 20) => {
         try {
             const params = {};
             if (url) params.url = url;
             if (startDate) params.startDate = startDate;
             if (endDate) params.endDate = endDate;
             if (status && status !== 'all') params.status = status;
+            params.page = page;
+            params.size = size;
 
             const response = await api.get('/comments', { params });
             return response.data;
@@ -60,6 +62,17 @@ export const commentService = {
             return response.data;
         } catch (error) {
             console.error('Error deleting all comments:', error);
+            throw error;
+        }
+    },
+
+    // 댓글 대량 분석 요청 (세션 내 20개씩 등)
+    analyzeBatch: async (commentIds) => {
+        try {
+            const response = await api.post('/comments/analyze-batch', commentIds);
+            return response.data;
+        } catch (error) {
+            console.error('Error analyzing batch:', error);
             throw error;
         }
     }

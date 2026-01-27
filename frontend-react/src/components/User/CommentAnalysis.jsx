@@ -42,10 +42,14 @@ export default function CommentAnalysis() {
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={6}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          // #장소영
+          rows={10}
+          className="!block !w-full !max-w-none !min-w-0 px-4 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
+          style={{ width: '100%', minHeight: '260px' }}
+          // #여기까지
           placeholder="Paste the comment you want to analyze..."
         />
+
         
         <div className="mt-4 flex justify-end">
           <button

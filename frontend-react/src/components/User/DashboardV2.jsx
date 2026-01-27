@@ -54,7 +54,7 @@ export default function DashboardV2() {
     { id: 'management', label: 'Comments', icon: MessageSquare, path: '/comments' },
     { id: 'blacklist', label: 'Blacklist', icon: UserX, path: '/blacklist' },
     { id: 'writing', label: 'AI Assistant', icon: Wand2, path: '/aiassistant' },
-    { id: 'templates', label: 'Templates', icon: FileText, path: '/templates' },
+    // { id: 'templates', label: 'Templates', icon: FileText, path: '/templates' },  // Removed by user request
     { id: 'stats', label: 'Statistics', icon: Activity, path: '/statistics' },
     { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
   ];
@@ -96,7 +96,7 @@ export default function DashboardV2() {
           {activeTab === 'management' && <CommentManagementView />}
           {activeTab === 'blacklist' && <BlacklistView />}
           {activeTab === 'writing' && <TemplateManager />}
-          {activeTab === 'templates' && <TemplateView />}
+          {/* {activeTab === 'templates' && <TemplateView />} */}
           {activeTab === 'stats' && <StatisticsView />}
           {activeTab === 'profile' && <ProfileSettings />}
         </div>
@@ -1228,8 +1228,25 @@ function CommentManagementView() {
   const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedIds, setSelectedIds] = useState([]); // Bulk select state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const pageSize = 10;
 
-  // 초기 댓글 목록 로드
+  // Refs for tracking latest state in async loops (avoid stale closures)
+  const currentPageRef = React.useRef(currentPage);
+  const lastAnalyzedUrlRef = React.useRef(lastAnalyzedUrl);
+  const startDateRef = React.useRef(startDate);
+  const endDateRef = React.useRef(endDate);
+  const filterStatusRef = React.useRef(filterStatus);
+
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+  useEffect(() => { lastAnalyzedUrlRef.current = lastAnalyzedUrl; }, [lastAnalyzedUrl]);
+  useEffect(() => { startDateRef.current = startDate; }, [startDate]);
+  useEffect(() => { endDateRef.current = endDate; }, [endDate]);
+  useEffect(() => { filterStatusRef.current = filterStatus; }, [filterStatus]);
   useEffect(() => {
     loadComments();
     // 기본 날짜 설정 (최근 1주일)
@@ -1246,37 +1263,47 @@ function CommentManagementView() {
     try {
       let data;
       if (fromHistory) {
-        // Fetch full history from AnalysisResult table
-        const historyData = await analysisService.getHistory();
-        // Map AnalysisResult fields to Comment UI expected fields
-        data = historyData.map(item => ({
-          commentId: item.analysisId, // Use analysisId as unique key
-          authorIdentifier: item.author || 'Unknown',
-          commentText: item.commentText,
-          isMalicious: item.toxicityScore > 0,
-          commentedAt: item.analyzedAt, // Use analysis time for history
-          toxicityScore: item.toxicityScore
-        }));
+        // Fetch full history from AnalysisResult table (Paginated)
+        const paginatedData = await analysisService.getHistory(currentPage, pageSize);
+
+        // Map Page content to Comment UI fields
+        data = {
+          ...paginatedData,
+          content: paginatedData.content.map(item => ({
+            commentId: item.commentId || item.analysisId,
+            authorIdentifier: item.author || 'Unknown',
+            commentText: item.commentText,
+            isMalicious: item.toxicityScore > 50,
+            isAnalyzed: true, // History is always analyzed
+            commentedAt: item.analyzedAt,
+            toxicityScore: item.toxicityScore
+          }))
+        };
         setLastAnalyzedUrl(''); // Clear current URL context
       } else {
-        const targetUrl = overrideUrl !== null ? overrideUrl : lastAnalyzedUrl;
+        const targetUrl = overrideUrl !== null ? overrideUrl : lastAnalyzedUrlRef.current;
         data = await commentService.getComments(
           targetUrl,
-          startDate,
-          endDate,
-          filterStatus
+          startDateRef.current,
+          endDateRef.current,
+          filterStatusRef.current,
+          currentPageRef.current,
+          pageSize
         );
       }
 
-      // Apply Client-side filtering if needed (though backend handles most)
-      let filteredData = data;
-      if (filterStatus === 'clean') {
-        filteredData = data.filter(c => !c.isMalicious);
-      } else if (filterStatus === 'malicious') {
-        filteredData = data.filter(c => c.isMalicious);
+      if (data && data.content) {
+        setComments(data.content.map(c => ({
+          ...c,
+          isAnalyzed: c.isAnalyzed !== undefined ? c.isAnalyzed : (c.toxicityScore !== undefined)
+        })));
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+      } else {
+        setComments(Array.isArray(data) ? data : []);
+        setTotalPages(0);
+        setTotalElements(Array.isArray(data) ? data.length : 0);
       }
-
-      setComments(filteredData);
     } catch (error) {
       console.error('Failed to load comments:', error);
       // Fallback for demo/empty state
@@ -1286,14 +1313,12 @@ function CommentManagementView() {
     }
   };
 
-  // 날짜 또는 필터 변경 시 목록 자동 갱신 및 스마트 기간 설정
   useEffect(() => {
     if (startDate && endDate) {
       loadComments();
     }
-  }, [startDate, endDate, filterStatus]);
+  }, [startDate, endDate, filterStatus, currentPage]);
 
-  // 시작 날짜 변경 시 종료 날짜 자동 7일 세팅
   const handleStartDateChange = (e) => {
     const newStart = e.target.value;
     setStartDate(newStart);
@@ -1304,8 +1329,6 @@ function CommentManagementView() {
       const newEnd = date.toISOString().split('T')[0];
       setEndDate(newEnd);
       setMessage({ type: 'success', text: '분석 기간이 시작일로부터 7일로 자동 설정되었습니다.' });
-
-      // 3초 후 메시지 제거
       setTimeout(() => setMessage(null), 3000);
     }
   };
@@ -1316,23 +1339,17 @@ function CommentManagementView() {
       setEndDate(newEnd);
       return;
     }
-
     const start = new Date(startDate);
     const end = new Date(newEnd);
-
-    // 시작일보다 이전 날짜 선택 방지
     if (end < start) {
       setMessage({ type: 'error', text: '종료일은 시작일보다 빠를 수 없습니다.' });
-      setEndDate(startDate); // 시작일과 동일하게 보정
+      setEndDate(startDate);
       return;
     }
-
     const diffTime = end - start;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
     if (diffDays > 7) {
       setMessage({ type: 'error', text: '분석 기간은 최대 7일을 초과할 수 없습니다.' });
-      // 강제로 7일로 맞춤
       const maxEnd = new Date(start);
       maxEnd.setDate(maxEnd.getDate() + 7);
       setEndDate(maxEnd.toISOString().split('T')[0]);
@@ -1340,6 +1357,7 @@ function CommentManagementView() {
       setEndDate(newEnd);
       setMessage(null);
     }
+    setCurrentPage(0);
   };
 
   const handleAnalyze = async () => {
@@ -1348,54 +1366,73 @@ function CommentManagementView() {
       setMessage({ type: 'error', text: '시작일과 종료일을 입력해주세요.' });
       return;
     }
-
     const start = new Date(startDate);
     const end = new Date(endDate);
-
     if (start > end) {
       setMessage({ type: 'error', text: '시작일이 종료일보다 늦을 수 없습니다.' });
       return;
     }
-
     const diffTime = end - start;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
     if (diffDays > 7) {
-      setMessage({ type: 'error', text: '분석 기간은 최대 1주일까지만 가능합니다.' });
+      setMessage({ type: 'error', text: '분석 기간은 최대 7일까지 가능합니다.' });
       return;
     }
-
+    setCurrentPage(0);
     setAnalyzing(true);
     setLoadingStatus('유튜브 데이터 수집 중...');
     setMessage(null);
 
-    // 단계별 메시지 시뮬레이션
-    const statusTimer = setTimeout(() => setLoadingStatus('AI 유해성 분석 및 필터링 수행 중...'), 3000);
-
     try {
-      const result = await commentService.crawlAndAnalyze(url, startDate, endDate);
-      clearTimeout(statusTimer);
-      setLoadingStatus('분석 완료! 결과 동기화 중...');
-
-      // 사용자 경험을 위해 살짝 지연 후 결과 표시
-      setTimeout(() => {
-        setLastAnalyzedUrl(url); // 마지막 분석 URL 저장
-        setMessage({
-          type: 'success',
-          text: `수집 완료: ${result.totalCrawled}개, 분석 완료: ${result.analyzedCount}개 (기간 필터링 적용)`
-        });
-        loadComments(url); // 해당 URL로 목록 갱신
-      }, 800);
+      const crawlResult = await commentService.crawlAndAnalyze(url, startDate, endDate);
+      setLastAnalyzedUrl(url);
+      setAnalyzing(false);
+      setMessage({ type: 'success', text: `수집 완료: ${crawlResult.savedCount}개. 이제 순차적으로 분석을 시작합니다.` });
+      await loadComments(url);
+      triggerSequentialAnalysis(url, crawlResult.savedCount);
     } catch (error) {
-      clearTimeout(statusTimer);
-      setMessage({ type: 'error', text: '분석 요청 실패: ' + (error.response?.data?.error || error.message) });
-    } finally {
-      // 결과 표시 지연 시간에 맞춰 analyzing 해제
-      setTimeout(() => {
-        setAnalyzing(false);
-        setLoadingStatus('');
-      }, 1000);
+      setAnalyzing(false);
+      setMessage({ type: 'error', text: '수집 실패: ' + (error.response?.data?.error || error.message) });
     }
+  };
+
+  const triggerSequentialAnalysis = async (targetUrl, totalCount) => {
+    if (totalCount === 0) return;
+    setIsBatchAnalyzing(true);
+    setAnalysisProgress(0);
+    const totalPagesToAnalyze = Math.ceil(totalCount / pageSize);
+    for (let i = 0; i < totalPagesToAnalyze; i++) {
+      setLoadingStatus(`분석 진행 중: ${i + 1} / ${totalPagesToAnalyze} 페이지...`);
+      try {
+        // Use refs to get latest state during the long loop
+        const pageData = await commentService.getComments(
+          targetUrl,
+          startDateRef.current,
+          endDateRef.current,
+          'all',
+          i,
+          pageSize
+        );
+
+        const unanalyzedIds = pageData.content.filter(c => !c.isAnalyzed).map(c => c.commentId);
+        if (unanalyzedIds.length > 0) {
+          await commentService.analyzeBatch(unanalyzedIds);
+        }
+
+        // If the user is currently looking at THIS page, refresh the UI
+        if (currentPageRef.current === i) {
+          await loadComments(targetUrl);
+        }
+
+        setAnalysisProgress(Math.round(((i + 1) / totalPagesToAnalyze) * 100));
+      } catch (error) {
+        console.error(`Page ${i + 1} analysis failed:`, error);
+      }
+    }
+    setIsBatchAnalyzing(false);
+    setLoadingStatus('');
+    setMessage({ type: 'success', text: '모든 댓글의 분석이 완료되었습니다.' });
+    loadComments(targetUrl);
   };
 
   const handleDelete = async (id) => {
@@ -1620,7 +1657,10 @@ function CommentManagementView() {
               {['all', 'clean', 'malicious'].map(status => (
                 <button
                   key={status}
-                  onClick={() => setFilterStatus(status)}
+                  onClick={() => {
+                    setFilterStatus(status);
+                    setCurrentPage(0);
+                  }}
                   className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all uppercase ${filterStatus === status
                     ? 'bg-slate-800 text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-300'
@@ -1630,15 +1670,6 @@ function CommentManagementView() {
                 </button>
               ))}
             </div>
-
-            {lastAnalyzedUrl && (
-              <button
-                onClick={() => loadComments(null, true)}
-                className="h-8 px-3 rounded-lg flex items-center gap-2 text-[10px] font-bold border border-slate-700 hover:bg-slate-800 text-slate-300 transition-all"
-              >
-                <Database size={12} /> SHOW ALL HISTORY
-              </button>
-            )}
 
             <div className="px-3 py-1 rounded-full bg-slate-800 text-[10px] font-bold text-slate-400 border border-slate-700">
               {comments.length} ITEMS {lastAnalyzedUrl ? 'FOR THIS VIDEO' : 'TOTAL'}
@@ -1701,20 +1732,39 @@ function CommentManagementView() {
                         checked={selectedIds.includes(comment.commentId)}
                         onChange={() => toggleSelect(comment.commentId)}
                       />
+                      
                     </td>
                     <td className="p-4 align-top">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">{comment.authorIdentifier}</span>
-                        <span className="text-[10px] text-slate-600 font-mono tracking-tighter">YOUTUBE_USER</span>
-                      </div>
-                    </td>
+  <div className="flex items-center gap-2">
+    <div className="flex flex-col">
+      <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
+        {comment.authorIdentifier}
+      </span>
+      <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
+        YOUTUBE_USER
+      </span>
+    </div>
+    {/* ID 복사 버튼 - 오른쪽에 배치 */}
+    <button
+      onClick={() => handleCopyId(comment.authorIdentifier)}
+      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
+      title="ID 복사"
+    >
+      <Copy size={14} />
+    </button>
+  </div>
+</td>
                     <td className="p-4 align-top">
                       <p className="text-sm text-slate-300 leading-relaxed line-clamp-2 max-w-xl group-hover:line-clamp-none transition-all duration-300">
                         {comment.commentText}
                       </p>
                     </td>
                     <td className="p-4 align-top text-center">
-                      {comment.isMalicious ? (
+                      {!comment.isAnalyzed ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase animate-pulse">
+                          <RefreshCw size={10} className="animate-spin" /> SCANNING...
+                        </div>
+                      ) : comment.isMalicious ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black uppercase">
                           <AlertTriangle size={10} /> MALICIOUS
                         </div>
@@ -1760,6 +1810,82 @@ function CommentManagementView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination UI */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 mt-6 bg-slate-900/40 border border-slate-800 rounded-xl">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+              disabled={currentPage === totalPages - 1}
+              className="ml-3"
+            >
+              Next
+            </Button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs text-slate-500">
+                Showing <span className="font-bold text-slate-200">{currentPage * pageSize + 1}</span> to{' '}
+                <span className="font-bold text-slate-200">
+                  {Math.min((currentPage + 1) * pageSize, totalElements)}
+                </span> of{' '}
+                <span className="font-bold text-slate-200">{totalElements}</span> results
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-lg shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                  disabled={currentPage === 0}
+                  className="relative inline-flex items-center rounded-l-lg px-2 py-2 text-slate-500 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                >
+                  <span className="sr-only">Previous</span>
+                  <RotateCcw size={16} className="rotate-180" />
+                </button>
+
+                {[...Array(totalPages)].map((_, i) => {
+                  if (i === 0 || i === totalPages - 1 || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i)}
+                        className={`relative inline-flex items-center px-4 py-2 text-xs font-bold transition-all ${currentPage === i
+                          ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                          : 'text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0'
+                          }`}
+                      >
+                        {i + 1}
+                      </button>
+                    )
+                  }
+                  if (i === 1 || i === totalPages - 2) {
+                    return <span key={i} className="relative inline-flex items-center px-4 py-2 text-xs font-bold text-slate-600 ring-1 ring-inset ring-slate-800 focus:outline-none">...</span>
+                  }
+                  return null;
+                })}
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                  disabled={currentPage === totalPages - 1}
+                  className="relative inline-flex items-center rounded-r-lg px-2 py-2 text-slate-500 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                >
+                  <span className="sr-only">Next</span>
+                  <RotateCcw size={16} />
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

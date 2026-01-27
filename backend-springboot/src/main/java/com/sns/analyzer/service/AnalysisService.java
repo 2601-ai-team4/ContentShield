@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
@@ -147,6 +149,10 @@ public class AnalysisService {
      */
     public List<AnalysisResult> getUserAnalysisResults(Long userId) {
         return analysisResultRepository.findByUserId(userId);
+    }
+
+    public Page<AnalysisResult> getUserAnalysisResults(Long userId, Pageable pageable) {
+        return analysisResultRepository.findByUserId(userId, pageable);
     }
 
     /**

@@ -124,6 +124,16 @@ const handleSubmit = async (e) => {
             </button>
           </div>
         </form>
+        {/* 🆕 회원가입 링크 */}
+        <div className="text-center mt-4 pt-4 border-t border-gray-200">
+          <span className="text-gray-500 text-sm">계정이 없으신가요? </span>
+          <Link 
+            to="/signup" 
+            className="text-blue-600 hover:text-blue-500 text-sm font-semibold"
+          >
+            회원가입
+          </Link>
+        </div>
       </div>
     </div>
   )

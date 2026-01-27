@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Wand2, Copy, CheckCircle, AlertTriangle,
   XCircle, MessageSquare, FileText, Send,
-  Sparkles, Loader2, AlertCircle
+  Sparkles, Loader2, AlertCircle, Save, Trash2, BookOpen
 } from 'lucide-react'
-import analysisService from '../../services/analysisService'
+import { analysisService } from '../../services/analysisService'
+import api from '../../services/api'
+
+
 
 export default function WritingAssistant() {
   // ==================== 상태 ====================
@@ -20,6 +23,9 @@ export default function WritingAssistant() {
   const [tone, setTone] = useState('polite')
   const [situation, setSituation] = useState('promotion')
   const [replyType, setReplyType] = useState('constructive')
+  const [savedTemplates, setSavedTemplates] = useState([])
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
 
 
   // ==================== 상수 ====================
@@ -92,6 +98,124 @@ export default function WritingAssistant() {
     await navigator.clipboard.writeText(text)
     setCopiedVersion(version)
     setTimeout(() => setCopiedVersion(null), 1500)
+  }
+
+  // 템플릿 저장 (로컬 스토리지 + SpringBoot API)
+  // 장소영~여기까지: SpringBoot API가 없을 때 500 에러를 조용히 처리
+  const handleSaveTemplate = async (text, version) => {
+    const templateName = prompt('템플릿 이름을 입력하세요:')
+    if (!templateName) return
+
+    const template = {
+      templateName,
+      templateContent: text,
+      category: activeTab === 'template' ? situation : activeTab,
+      description: `Version ${version} - ${tone} tone`,
+      tone,
+      situation: activeTab === 'template' ? situation : null,
+      createdAt: new Date().toISOString()
+    }
+
+    try {
+      // SpringBoot API에 저장 시도 (없으면 로컬 스토리지에만 저장)
+      // 장소영~여기까지: 404/500 에러는 SpringBoot API가 구현되지 않았을 때 발생하므로 조용히 무시
+      try {
+        await api.post('/templates', template)
+      } catch (apiError) {
+        // 장소영~여기까지: 404/500 에러는 SpringBoot API가 구현되지 않았을 때 발생하므로 조용히 무시
+        // axios interceptor에서도 처리하지만, 여기서도 추가로 조용히 처리
+        const status = apiError.response?.status
+        if (status !== 404 && status !== 500) {
+          console.warn('API 저장 실패, 로컬 스토리지에 저장:', apiError)
+        }
+        // 404/500 에러는 조용히 무시하고 로컬 스토리지로 진행
+      }
+
+      // 로컬 스토리지에도 저장 (백업)
+      const localTemplates = JSON.parse(localStorage.getItem('writingTemplates') || '[]')
+      localTemplates.push({ ...template, id: Date.now() })
+      localStorage.setItem('writingTemplates', JSON.stringify(localTemplates))
+
+      setSavedTemplates([...savedTemplates, { ...template, id: Date.now() }])
+      alert('템플릿이 저장되었습니다!')
+    } catch (error) {
+      console.error('템플릿 저장 오류:', error)
+      alert('템플릿 저장 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 저장된 템플릿 로드
+  // 장소영~여기까지: SpringBoot API가 없을 때 500 에러를 조용히 처리
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        // SpringBoot API에서 로드 시도
+        try {
+          const response = await api.get('/templates')
+          if (response.data && Array.isArray(response.data)) {
+            setSavedTemplates(response.data)
+            return
+          }
+        } catch (apiError) {
+          // 장소영~여기까지: 404/500 에러는 SpringBoot API가 구현되지 않았을 때 발생하므로 조용히 무시
+          // 404 (Not Found) 또는 500 (Internal Server Error)는 API 미구현으로 간주
+          // axios interceptor에서도 처리하지만, 여기서도 추가로 조용히 처리
+          const status = apiError.response?.status
+          if (status !== 404 && status !== 500) {
+            console.warn('API 로드 실패, 로컬 스토리지에서 로드:', apiError)
+          }
+          // 404/500 에러는 조용히 무시하고 로컬 스토리지로 진행
+        }
+
+        // 로컬 스토리지에서 로드
+        const localTemplates = JSON.parse(localStorage.getItem('writingTemplates') || '[]')
+        setSavedTemplates(localTemplates)
+      } catch (error) {
+        console.error('템플릿 로드 오류:', error)
+      }
+    }
+    loadTemplates()
+  }, [])
+
+  // 템플릿 선택
+  const handleSelectTemplate = (template) => {
+    setSelectedTemplate(template)
+    if (activeTab === 'template') {
+      setSituation(template.situation || 'promotion')
+      setTopic(template.templateContent)
+    } else {
+      setOriginalText(template.templateContent)
+    }
+    setTone(template.tone || 'polite')
+    setShowTemplates(false)
+  }
+
+  // 템플릿 삭제
+  // 장소영~여기까지: SpringBoot API가 없을 때 500 에러를 조용히 처리
+  const handleDeleteTemplate = async (templateId) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return
+
+    try {
+      // SpringBoot API에서 삭제 시도
+      try {
+        await api.delete(`/templates/${templateId}`)
+      } catch (apiError) {
+        // 장소영~여기까지: 404/500 에러는 SpringBoot API가 구현되지 않았을 때 발생하므로 조용히 무시
+        const status = apiError.response?.status
+        if (status !== 404 && status !== 500) {
+          console.warn('API 삭제 실패, 로컬 스토리지에서 삭제:', apiError)
+        }
+      }
+
+      // 로컬 스토리지에서도 삭제
+      const localTemplates = JSON.parse(localStorage.getItem('writingTemplates') || '[]')
+      const filtered = localTemplates.filter(t => t.id !== templateId)
+      localStorage.setItem('writingTemplates', JSON.stringify(filtered))
+
+      setSavedTemplates(savedTemplates.filter(t => t.id !== templateId))
+    } catch (error) {
+      console.error('템플릿 삭제 오류:', error)
+    }
   }
 
   // ==================== UI ====================
@@ -177,7 +301,14 @@ export default function WritingAssistant() {
           </>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => setShowTemplates(!showTemplates)}
+            className="px-4 py-2 bg-white/10 rounded-lg flex items-center text-sm"
+          >
+            <BookOpen className="h-4 w-4 mr-2" />
+            저장된 템플릿 ({savedTemplates.length})
+          </button>
           <button
             onClick={handleAnalyze}
             disabled={loading}
@@ -191,6 +322,40 @@ export default function WritingAssistant() {
         </div>
       </div>
 
+      {/* 저장된 템플릿 목록 */}
+      {showTemplates && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">저장된 템플릿</h3>
+          {savedTemplates.length === 0 ? (
+            <p className="text-gray-400 text-sm">저장된 템플릿이 없습니다.</p>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {savedTemplates.map((template, idx) => (
+                <div key={template.id || idx} className="bg-black/30 p-4 rounded-lg border border-white/10">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-sm">{template.templateName}</h4>
+                    <button
+                      onClick={() => handleDeleteTemplate(template.id || idx)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-2">{template.category} • {template.tone}</p>
+                  <p className="text-sm text-gray-300 line-clamp-2 mb-3">{template.templateContent}</p>
+                  <button
+                    onClick={() => handleSelectTemplate(template)}
+                    className="w-full text-xs bg-primary-600/20 hover:bg-primary-600/30 rounded py-2"
+                  >
+                    사용하기
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 결과 */}
       {analyzed && (
         <div className="grid md:grid-cols-3 gap-6">
@@ -203,12 +368,21 @@ export default function WritingAssistant() {
                 {s.text}
               </div>
 
-              <button
-                onClick={() => handleCopy(s.text, s.version)}
-                className="mt-3 text-sm w-full bg-white/10 rounded-lg py-2"
-              >
-                {copiedVersion === s.version ? '복사됨' : '복사'}
-              </button>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => handleCopy(s.text, s.version)}
+                  className="flex-1 text-sm bg-white/10 rounded-lg py-2"
+                >
+                  {copiedVersion === s.version ? '복사됨' : '복사'}
+                </button>
+                <button
+                  onClick={() => handleSaveTemplate(s.text, s.version)}
+                  className="flex-1 text-sm bg-primary-600/20 hover:bg-primary-600/30 rounded-lg py-2 flex items-center justify-center"
+                  title="템플릿 저장"
+                >
+                  <Save className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
