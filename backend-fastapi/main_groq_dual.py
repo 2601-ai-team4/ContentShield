@@ -41,7 +41,10 @@ app = FastAPI(
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
+    # 현재 (모든 도메인 허용 - 개발용)
     allow_origins=["*"],
+    # 배포전
+    #allow_origins=["http://localhost:3000", "https://yourdomain.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,10 +56,13 @@ class TextAnalysisRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000)
     language: str = Field(default="ko")
     use_dual_model: bool = Field(default=True, description="두 모델 모두 사용 여부")
-
+    custom_blocked_words: List[str] = Field(default=[], description="사용자 정의 차단 단어")  # 추가!
 
 class AnalysisResponse(BaseModel):
     is_malicious: bool
+    is_blocked: bool = False  # 추가! 사용자 차단 단어 포함 여부
+    blocked_words_found: List[str] = []  # 추가! 발견된 사용자 차단 단어
+    status: str = "clean"  # 추가! "clean", "malicious", "blocked"
     toxicity_score: float
     hate_speech_score: float
     profanity_score: float
@@ -181,7 +187,7 @@ class GroqDualModelAnalyzer:
         self.blocked_words = {
             "ko": [
                 "바보", "멍청이", "병신", "개새끼", "씨발", "지랄", "미친",
-                "죽여", "죽일", "때려", "혐오", "차별", "꺼져", "닥쳐"
+                "죽여", "죽일", "때려", "혐오", "차별", "꺼져", "닥쳐","개자식","양아치"
             ],
             "en": [
                 "stupid", "idiot", "fuck", "shit", "kill", "hate", "damn"
@@ -196,15 +202,16 @@ class GroqDualModelAnalyzer:
         self, 
         text: str, 
         language: str = "ko",
-        use_dual_model: bool = True
+        use_dual_model: bool = True,
+        custom_blocked_words: List[str] = None  # 추가!
     ) -> AnalysisResponse:
         """텍스트 분석 (듀얼 모델)"""
         import time
         start_time = time.time()
         
         try:
-            # 1. 규칙 기반 필터링
-            rule_result = self._rule_based_filter(text, language)
+            # 1. 규칙 기반 필터링 (사용자 차단 단어 포함)
+            rule_result = self._rule_based_filter(text, language, custom_blocked_words or [])
             
             if not self.api_key:
                 logger.warning("No API key, using fallback")
@@ -216,13 +223,25 @@ class GroqDualModelAnalyzer:
                 # 3. 단일 모델 분석
                 result = await self._single_model_analysis(text, language, rule_result)
             
+            # 사용자 차단 단어 처리 추가
+            result["is_blocked"] = rule_result.get("is_blocked_by_user", False)
+            result["blocked_words_found"] = rule_result.get("user_blocked_words_found", [])
+            
+            # status 결정
+            if result["is_blocked"]:
+                result["status"] = "blocked"
+            elif result["is_malicious"]:
+                result["status"] = "malicious"
+            else:
+                result["status"] = "clean"
+            
             processing_time = (time.time() - start_time) * 1000
             result["processing_time_ms"] = round(processing_time, 2)
             result["analyzed_at"] = datetime.now().isoformat()
             result["ai_model_version"] = self.model_version
             
             return AnalysisResponse(**result)
-            
+        
         except Exception as e:
             logger.error(f"Analysis error: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
@@ -378,6 +397,11 @@ Respond in valid JSON format only, no markdown:
                 )
             
             if response.status_code == 200:
+                # [Rate Limit Logging]
+                remaining_tokens = response.headers.get("x-ratelimit-remaining-tokens", "unknown")
+                remaining_requests = response.headers.get("x-ratelimit-remaining-requests", "unknown")
+                logger.info(f"⚡ Groq Rate Limit Info: Remaining Tokens={remaining_tokens}, Requests={remaining_requests}")
+
                 result = response.json()
                 content = result["choices"][0]["message"]["content"]
                 
@@ -417,11 +441,13 @@ Respond in valid JSON format only, no markdown:
         llama_result = await self._llama_analysis(text, language)
         return self._combine_results(rule_result, llama_result)
     
-    def _rule_based_filter(self, text: str, language: str) -> Dict[str, Any]:
-        """규칙 기반 필터링"""
+    def _rule_based_filter(self, text: str, language: str, custom_blocked_words: List[str] = None) -> Dict[str, Any]:
+        """규칙 기반 필터링 (사용자 차단 단어 포함)"""
         detected = []
+        user_blocked_found = []
         score = 0.0
         
+        # 기본 차단 단어 체크
         words = self.blocked_words.get(language, [])
         text_lower = text.lower()
         
@@ -430,10 +456,19 @@ Respond in valid JSON format only, no markdown:
                 detected.append(word)
                 score += 25.0
         
+        # 사용자 정의 차단 단어 체크
+        if custom_blocked_words:
+            for word in custom_blocked_words:
+                if word.lower() in text_lower:
+                    user_blocked_found.append(word)
+                    # 사용자 차단 단어는 별도로 처리 (점수에 추가하지 않음)
+        
         return {
             "detected_keywords": detected,
             "rule_score": min(score, 100.0),
-            "is_malicious_rule": score > 50.0
+            "is_malicious_rule": score > 50.0,
+            "is_blocked_by_user": len(user_blocked_found) > 0,  # 추가!
+            "user_blocked_words_found": user_blocked_found  # 추가!
         }
     
     def _combine_dual_results(
@@ -473,7 +508,7 @@ Respond in valid JSON format only, no markdown:
             sexual = max(sexual, 85)
         
         is_malicious = (
-            toxicity > 50.0 or
+            toxicity > 0 or  # STRICT POLICY: Any score > 0 is malicious
             hate_speech > 60.0 or
             profanity > 70.0 or
             threat > 40.0 or
@@ -495,7 +530,7 @@ Respond in valid JSON format only, no markdown:
             category = "profanity"
         elif toxicity > 70:
             category = "highly_toxic"
-        elif toxicity > 40:
+        elif toxicity > 0:  # STRICT POLICY
             category = "moderately_toxic"
         else:
             category = "safe"
@@ -558,17 +593,15 @@ Respond in valid JSON format only, no markdown:
     
     def _fallback_analysis(self, text: str) -> Dict[str, Any]:
         """Llama 폴백"""
-        text_length = len(text)
-        base_score = min(text_length * 2, 100)
-        
+        # API 오류 시 '안전'으로 처리 (길이 기반 판정 제거)
         return {
-            "toxicity_score": base_score,
-            "hate_speech_score": max(0, base_score - 30),
-            "profanity_score": max(0, base_score - 20),
-            "threat_score": max(0, base_score - 40),
-            "violence_score": max(0, base_score - 35),
-            "sexual_score": max(0, base_score - 45),
-            "reasoning": "Fallback analysis",
+            "toxicity_score": 0,
+            "hate_speech_score": 0,
+            "profanity_score": 0,
+            "threat_score": 0,
+            "violence_score": 0,
+            "sexual_score": 0,
+            "reasoning": "Fallback analysis (API Unavailable) - Assumed Safe",
             "llama_success": False
         }
     
@@ -1209,7 +1242,8 @@ async def analyze_text(request: TextAnalysisRequest):
     result = await analyzer.analyze_text(
         request.text, 
         request.language,
-        request.use_dual_model
+        request.use_dual_model,
+        request.custom_blocked_words
     )
     return result
 
@@ -1232,12 +1266,61 @@ async def analyze_batch(
             logger.error(f"Failed: {e}")
             results.append(None)
     
+    
     return {
         "total": len(results),
         "results": results,
         "dual_model": use_dual_model,
         "processed_at": datetime.now().isoformat()
     }
+
+
+# ==================== YouTube Crawler ====================
+
+class YoutubeCrawlRequest(BaseModel):
+    url: str
+
+@app.post("/crawl/youtube")
+async def crawl_youtube(request: YoutubeCrawlRequest):
+    """유튜브 댓글 수집 (youtube-comment-downloader 사용)"""
+    logger.info(f"Crawling YouTube comments for: {request.url}")
+    
+    try:
+        from youtube_comment_downloader import YoutubeCommentDownloader
+        downloader = YoutubeCommentDownloader()
+        
+        comments = []
+        # sort_by=1 (최신순), limit=100 (최대 100개만 수집하여 테스트)
+        generator = downloader.get_comments_from_url(request.url, sort_by=1)
+        
+        count = 0
+        for comment in generator:
+            # if count >= 500:
+            #     break
+                
+
+            comments.append({
+                "external_id": comment.get('cid', ''),
+                "author": comment.get('author', 'Unknown'),
+                "text": comment.get('text', ''),
+                "publish_date": comment.get('time', ''),
+                "author_id": comment.get('channel', ''),
+                "like_count": comment.get('votes', 0)
+            })
+            count += 1
+            
+        logger.info(f"Crawled {len(comments)} comments")
+        
+        return {
+            "status": "success",
+            "video_url": request.url,
+            "count": len(comments),
+            "comments": comments
+        }
+        
+    except Exception as e:
+        logger.error(f"Crawling failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Crawling failed: {str(e)}")
 
 
 # ==================== 🆕 AI Assistant 엔드포인트 ====================

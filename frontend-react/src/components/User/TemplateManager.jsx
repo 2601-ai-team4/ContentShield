@@ -4,6 +4,7 @@ import {
   XCircle, MessageSquare, FileText, Send,
   Sparkles, Loader2, AlertCircle
 } from 'lucide-react'
+import analysisService from '../../services/analysisService'
 
 export default function WritingAssistant() {
   // ==================== 상태 ====================
@@ -20,7 +21,6 @@ export default function WritingAssistant() {
   const [situation, setSituation] = useState('promotion')
   const [replyType, setReplyType] = useState('constructive')
 
-  const API_URL = 'http://localhost:8000'
 
   // ==================== 상수 ====================
   const tabs = [
@@ -45,6 +45,7 @@ export default function WritingAssistant() {
   ]
 
   // ==================== API ====================
+  // ==================== API ====================
   const handleAnalyze = async () => {
     if (activeTab === 'template' && !topic.trim()) {
       setError('작성할 내용을 입력해주세요')
@@ -62,38 +63,26 @@ export default function WritingAssistant() {
     setError(null)
 
     try {
-      let endpoint = ''
-      let body = {}
+      let data;
 
       if (activeTab === 'improve') {
-        endpoint = '/api/assistant/improve'
-        body = { text: originalText, tone, language: 'ko' }
+        data = await analysisService.assistantImprove(originalText, tone, 'ko')
       }
 
       if (activeTab === 'reply') {
-        endpoint = '/api/assistant/reply'
-        body = { original_comment: originalText, reply_type: replyType, language: 'ko' }
+        data = await analysisService.assistantReply(originalText, null, replyType, 'ko')
       }
 
       if (activeTab === 'template') {
-        endpoint = '/api/assistant/template'
-        body = { situation, topic, tone, language: 'ko' }
+        data = await analysisService.assistantTemplate(situation, topic, tone, 'ko')
       }
-
-      const res = await fetch(API_URL + endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'API 오류')
 
       setSuggestions(data.suggestions || [])
       setAnalyzed(true)
 
     } catch (err) {
-      setError(err.message)
+      console.error(err)
+      setError(err.message || '분석 중 오류가 발생했습니다')
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,37 @@
 // ==================== src/services/analysisService.js ====================
 
-const API_BASE_URL = process.env.REACT_APP_FASTAPI_URL || 'http://localhost:8000'
+import api from './api'; // Ensure this exists or use fetch. Let's assume api was used in HEAD.
+// But to be safe and consistent with sieun, I will use fetch for everything if api import is missing.
+// Actually, I'll try to use the existing `api` instance if possible, but since I can't see the import, I'll stick to fetch for safety or define a simple fetch wrapper.
+
+const API_BASE_URL = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000'
+const SPRING_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api'
+
+// === Legacy Methods (from HEAD) ===
+export const analyzeComment = async (commentId) => {
+  const response = await fetch(`${SPRING_API_URL}/analysis/comment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commentId })
+  });
+  if (!response.ok) throw new Error('Failed to analyze comment');
+  return response.json();
+}
+
+export const getHistory = async () => {
+  const response = await fetch(`${SPRING_API_URL}/analysis/history`);
+  if (!response.ok) throw new Error('Failed to fetch history');
+  return response.json();
+}
+
+export const getStats = async () => {
+  const response = await fetch(`${SPRING_API_URL}/analysis/stats`);
+  if (!response.ok) throw new Error('Failed to fetch stats');
+  return response.json();
+}
+
+// 윤혜정 텍스트 직접 분석 (신규 - HEAD) -> sieun's analyzeText replaces this effectively?
+// sieun's analyzeText is more robust. I'll keep sieun's version below.
 
 /**
  * AI Assistant API 서비스
@@ -101,7 +132,7 @@ export const assistantAnalyze = async (text, language = 'ko') => {
     }
 
     const data = await response.json()
-    
+
     return {
       success: data.success,
       analysis: data.analysis,
@@ -123,9 +154,9 @@ export const assistantAnalyze = async (text, language = 'ko') => {
  * @returns {Promise<Object>} AI 개선 결과
  */
 export const assistantImprove = async (
-  text, 
-  tone = 'polite', 
-  language = 'ko', 
+  text,
+  tone = 'polite',
+  language = 'ko',
   instruction = null
 ) => {
   try {
@@ -148,7 +179,7 @@ export const assistantImprove = async (
     }
 
     const data = await response.json()
-    
+
     return {
       success: data.success,
       analysis: data.analysis,
@@ -196,7 +227,7 @@ export const assistantReply = async (
     }
 
     const data = await response.json()
-    
+
     return {
       success: data.success,
       analysis: data.analysis,
@@ -244,7 +275,7 @@ export const assistantTemplate = async (
     }
 
     const data = await response.json()
-    
+
     return {
       success: data.success,
       suggestions: data.suggestions,
@@ -267,7 +298,7 @@ export const assistantTemplate = async (
 export const checkHealth = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/health`)
-    
+
     if (!response.ok) {
       throw new Error('서버 연결 실패')
     }
@@ -286,7 +317,7 @@ export const checkHealth = async () => {
 export const getModelsInfo = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/models/info`)
-    
+
     if (!response.ok) {
       throw new Error('모델 정보 조회 실패')
     }
@@ -324,7 +355,7 @@ export const getRiskLevelColor = (riskLevel) => {
       border: 'border-red-300'
     }
   }
-  
+
   return colors[riskLevel] || colors['안전']
 }
 
@@ -339,7 +370,7 @@ export const getEmotionEmoji = (emotionTone) => {
     '중립적': '😐',
     '부정적': '😠'
   }
-  
+
   return emojis[emotionTone] || '😐'
 }
 
@@ -372,17 +403,18 @@ export default {
   // 기존 API
   analyzeText,
   analyzeBatch,
-  
+  getHistory,
+
   // AI Assistant API
   assistantAnalyze,
   assistantImprove,
   assistantReply,
   assistantTemplate,
-  
+
   // 정보 API
   checkHealth,
   getModelsInfo,
-  
+
   // 유틸리티
   getRiskLevelColor,
   getEmotionEmoji,

@@ -1,148 +1,156 @@
 // ==================== src/components/User/Statistics.jsx ====================
-import { useQuery } from '@tanstack/react-query'
-import { analysisService } from '../../services/analysisService'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react'
+import React, { useState, useEffect } from 'react';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
+} from 'recharts';
+import { Shield, AlertTriangle, UserX, CheckCircle, Activity, PieChart as PieChartIcon } from 'lucide-react';
+import dashboardService from '../../services/dashboardService';
 
-export default function Statistics() {
-  const { data: history } = useQuery('analysisHistory', analysisService.getHistory)
+const Statistics = () => {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const categoryData = calculateCategoryData(history || [])
-  const trends = calculateTrends(history || [])
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await dashboardService.getStats();
+        setStats(data);
+      } catch (error) {
+        console.error("Failed to fetch statistics:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return <div className="text-center p-20 text-slate-500 animate-pulse">통계 데이터를 불러오는 중...</div>;
+  }
+
+  if (!stats) {
+    return <div className="text-center p-20 text-red-400">데이터를 불러오지 못했습니다.</div>;
+  }
+
+  // --- Data Mapping ---
+  const statsCards = [
+    { title: 'Total Comments', value: stats.total?.toLocaleString() || '0', icon: Shield, color: 'text-blue-400', bg: 'bg-blue-900/20', border: 'border-blue-900/50' },
+    { title: 'Malicious Comments', value: stats.malicious?.toLocaleString() || '0', icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/20', border: 'border-red-900/50' },
+    { title: 'Safe Comments', value: stats.clean?.toLocaleString() || '0', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-900/20', border: 'border-emerald-900/50' },
+    { title: 'Blacklisted Users', value: stats.blacklistCount?.toLocaleString() || '0', icon: UserX, color: 'text-slate-400', bg: 'bg-slate-800', border: 'border-slate-700' },
+  ];
+
+  // Category Colors
+  const COLORS = {
+    'profanity': '#0ea5e9', // Sky Blue (changed from Orange to be distinct from Yellow)
+    'hate_speech': '#ef4444', // Red
+    'sexual_content': '#ec4899', // Pink
+    'violence': '#8b5cf6', // Violet
+    'threat': '#d946ef', // Fuchsia
+    'highly_toxic': '#b91c1c', // Dark Red
+    'moderately_toxic': '#eab308', // Yellow (cleaned up)
+    'spam': '#6366f1', // Indigo
+    'UNKNOWN': '#94a3b8', // Slate
+    'safe': '#10b981' // Emerald
+  };
+
+  const typeData = stats.typeBreakdown
+    ? Object.entries(stats.typeBreakdown).map(([key, value]) => ({
+      name: key,
+      value: value,
+      color: COLORS[key] || '#94a3b8'
+    }))
+    : [{ name: 'No Data', value: 1, color: '#334155' }];
+
+  const weeklyData = stats.weeklyActivity || [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Statistics</h1>
-
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <TrendCard
-          title="Total Analyzed"
-          value={history?.length || 0}
-          trend={trends.totalTrend}
-          icon={Activity}
-        />
-        <TrendCard
-          title="Avg Toxicity"
-          value={`${trends.avgToxicity.toFixed(1)}%`}
-          trend={trends.toxicityTrend}
-          icon={TrendingUp}
-        />
-        <TrendCard
-          title="Detection Rate"
-          value={`${trends.detectionRate.toFixed(1)}%`}
-          trend={trends.detectionTrend}
-          icon={TrendingDown}
-        />
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header */}
+      <div>
+        <h2 className="text-3xl font-bold text-white mb-2">Statistics Overview</h2>
+        <p className="text-slate-500">전체 댓글 분석 및 사용자 활동 통계입니다. (Real-time DB Data)</p>
       </div>
 
-      {/* Category Distribution */}
+      {/* 1. Top Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statsCards.map((stat, index) => (
+          <div key={index} className={`p-6 rounded-xl border ${stat.border} ${stat.bg} shadow-lg transition-transform hover:scale-105`}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">{stat.title}</p>
+                <h3 className="text-3xl font-black text-white mt-1">{stat.value}</h3>
+              </div>
+              <div className={`p-3 rounded-lg bg-slate-950/50 ${stat.color}`}>
+                <stat.icon size={28} strokeWidth={2.5} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 2. Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Category Distribution</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={renderCustomLabel}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+
+        {/* Pie Chart: Type Analysis */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden">
+          <div className="p-6 border-b border-slate-800">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <PieChartIcon size={20} className="text-blue-500" /> 유형별 분석 현황
+            </h3>
+          </div>
+          <div className="p-6 h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={typeData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {typeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b' }}
+                  itemStyle={{ color: '#e2e8f0' }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        {/* Recent Analysis */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Analysis</h2>
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {history?.slice(0, 10).map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 border rounded">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{item.category}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(item.analyzedAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold">
-                    {item.toxicityScore.toFixed(1)}%
-                  </p>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      item.toxicityScore > 50
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-green-100 text-green-800'
-                    }`}
-                  >
-                    {item.toxicityScore > 50 ? 'Malicious' : 'Safe'}
-                  </span>
-                </div>
-              </div>
-            ))}
+        {/* Bar Chart: Weekly Activity */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden">
+          <div className="p-6 border-b border-slate-800">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Activity size={20} className="text-emerald-500" /> 주간 분석 추이
+            </h3>
+          </div>
+          <div className="p-6 h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
+                  cursor={{ fill: '#1e293b' }}
+                />
+                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-function TrendCard({ title, value, trend, icon: Icon }) {
-  const isPositive = trend > 0
-
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-gray-600">{title}</p>
-        <Icon className="h-5 w-5 text-gray-400" />
-      </div>
-      <p className="text-3xl font-bold">{value}</p>
-      <p className={`text-sm mt-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-        {isPositive ? '+' : ''}{trend.toFixed(1)}% from last week
-      </p>
-    </div>
-  )
-}
-
-const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6']
-
-function renderCustomLabel({ name, percent }) {
-  return `${name} ${(percent * 100).toFixed(0)}%`
-}
-
-function calculateCategoryData(history) {
-  const categories = {}
-  history.forEach((item) => {
-    categories[item.category] = (categories[item.category] || 0) + 1
-  })
-  
-  return Object.entries(categories).map(([name, value]) => ({ name, value }))
-}
-
-function calculateTrends(history) {
-  const total = history.length
-  const avgToxicity = total > 0
-    ? history.reduce((sum, item) => sum + item.toxicityScore, 0) / total
-    : 0
-  const detectionRate = total > 0
-    ? (history.filter(item => item.toxicityScore > 50).length / total) * 100
-    : 0
-
-  return {
-    totalTrend: Math.random() * 10 - 5,
-    avgToxicity,
-    toxicityTrend: Math.random() * 10 - 5,
-    detectionRate,
-    detectionTrend: Math.random() * 10 - 5,
-  }
-}
+export default Statistics;
