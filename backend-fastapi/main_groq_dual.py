@@ -8,12 +8,20 @@ Llama-Guard-4-12b (필터링) + Llama-3.1-8b-instant (분석)
 - AI 분석 의견을 사람 말투 장문으로 후처리 생성
 """
 
+# 장소영~여기까지: .env 로딩을 파일 경로 고정 방식으로 변경 (모든 os.getenv()보다 위에 배치)
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# ✅ main_groq_dual.py가 있는 폴더의 .env를 "항상" 읽게 고정
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path, override=True)
+
 from fastapi import FastAPI, HTTPException, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import logging
-import os
 from datetime import datetime
 import httpx
 import json
@@ -21,23 +29,8 @@ import re
 import asyncio
 import urllib.parse
 
-from dotenv import load_dotenv
-
-
-# ✅ Windows에서 .env 인코딩 이슈 대비
-def _safe_load_dotenv():
-    env_path = os.path.join(os.path.dirname(__file__), ".env")
-    for enc in ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "cp949"):
-        try:
-            load_dotenv(dotenv_path=env_path, override=False, encoding=enc)
-            return
-        except UnicodeDecodeError:
-            continue
-        except Exception:
-            continue
-
-
-_safe_load_dotenv()
+# ✅ AI Writing Assistant 라우터 추가
+from routers import assistant
 
 # 로깅 설정
 logging.basicConfig(
@@ -53,14 +46,18 @@ app = FastAPI(
     version="3.1.0",
 )
 
-# CORS 설정
+# CORS 설정 (개발/운영 분리 가능)
+frontend_origins = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=frontend_origins if os.getenv("ENV") != "development" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ✅ AI Writing Assistant 라우터 등록
+app.include_router(assistant.router)
 
 
 # ==================== 데이터 모델 ====================
@@ -135,9 +132,20 @@ class GroqDualModelAnalyzer:
         }
 
         # 규칙 기반 차단 단어(최소 예시) - ko/en만
+        # 장소영~여기까지: 위협 키워드 추가 (죽어라, 죽일 등)
         self.blocked_words = {
-            "ko": ["바보", "멍청이", "병신", "개새끼", "씨발", "지랄", "미친", "꺼져", "닥쳐", "ㅅㅂ", "ㅂㅅ"],
-            "en": ["stupid", "idiot", "fuck", "shit", "hate", "damn"],
+            "ko": ["바보", "멍청이", "병신", "개새끼", "씨발", "지랄", "미친", "꺼져", "닥쳐", "ㅅㅂ", "ㅂㅅ",
+                   "죽어라", "죽어", "죽일", "죽이겠다", "죽이", "죽여", "죽여버", "죽여줄", "죽여드릴", "죽여야",
+                   "죽이고", "죽이면", "죽이게", "죽여라", "죽여야지", "죽여버릴", "죽일거", "죽일까"],
+            "en": ["stupid", "idiot", "fuck", "shit", "hate", "damn", "kill", "die", "death", "murder", "threat"],
+        }
+        
+        # 위협 키워드 (threat_score 강화용) - 장소영~여기까지
+        self.threat_keywords = {
+            "ko": ["죽어", "죽일", "죽이", "죽여", "죽여버", "죽여줄", "죽여드릴", "죽이고", "죽이면", "죽이게",
+                   "죽여라", "죽여야지", "죽여버릴", "죽일거", "죽일까", "죽이겠다", "죽이게", "죽일", "죽여야",
+                   "협박", "위협", "죽음", "살해", "해치", "해칠", "해치겠", "해치면", "해치게"],
+            "en": ["kill", "die", "death", "murder", "threat", "harm", "hurt", "destroy", "eliminate"],
         }
 
         # 동일 입력 결과 고정 캐시
@@ -216,7 +224,8 @@ class GroqDualModelAnalyzer:
         if "privacy" in guard_violated:
             return "privacy"
 
-        if threat > 45:
+        # 장소영~여기까지: 위협 감지 임계값 낮춤 (45 -> 35)
+        if threat > 35:
             return "threat"
         if violence > 65:
             return "violence"
@@ -721,9 +730,11 @@ Scoring guidance (context-first):
 - toxicity_score: overall hostility/insulting tone including sarcasm/derision
 - hate_speech_score: identity/protected-group based hate/discrimination
 - profanity_score: explicit profanity/curse intensity
-- threat_score: intimidation, implied harm, coercive consequences
+- threat_score: intimidation, implied harm, coercive consequences, death threats, killing threats (CRITICAL: "죽어라", "죽일", "kill", "die" 등은 높은 점수 필수)
 - violence_score: violence encouragement/graphic violence
 - sexual_score: explicit/implicit sexual content
+
+CRITICAL: If the text contains death threats or killing expressions (e.g., "죽어라", "죽일", "kill you", "die"), threat_score MUST be at least 70-100.
 
 JSON schema:
 {{
@@ -826,6 +837,10 @@ JSON schema:
         violence = llama_result.get("violence_score", 0)
         sexual = llama_result.get("sexual_score", 0)
         protected_group = bool(llama_result.get("protected_group", False))
+        
+        # 장소영~여기까지: 위협 키워드 감지 시 threat_score 강화 (단일 모델도 동일)
+        if rule_result.get("threat_detected", False):
+            threat = max(threat, 75.0)  # 위협 키워드 감지 시 최소 75점
 
         is_malicious = (
             toxicity > 55.0
@@ -870,22 +885,33 @@ JSON schema:
     def _rule_based_filter(self, text: str, language: str) -> Dict[str, Any]:
         detected = []
         score = 0.0
+        threat_detected = False  # 장소영~여기까지: 위협 키워드 감지 플래그
 
         if language not in ("ko", "en"):
             language = "en"
 
         words = self.blocked_words.get(language, [])
+        threat_words = self.threat_keywords.get(language, [])
         text_norm = text.casefold()
 
+        # 일반 차단 단어 체크
         for word in words:
             if word.casefold() in text_norm:
                 detected.append(word)
                 score += 15.0
 
+        # 위협 키워드 체크 (threat_score 강화) - 장소영~여기까지
+        for threat_word in threat_words:
+            if threat_word.casefold() in text_norm:
+                detected.append(threat_word)
+                score += 25.0  # 위협 키워드는 더 높은 점수
+                threat_detected = True
+
         return {
             "detected_keywords": detected,
             "rule_score": min(score, 100.0),
             "is_malicious_rule": False,  # 키워드만으로 확정 금지
+            "threat_detected": threat_detected,  # 장소영~여기까지: 위협 감지 플래그
         }
 
     # ==================== 듀얼 결과 통합 (scam/spam 제거) ====================
@@ -921,6 +947,10 @@ JSON schema:
             violence = max(violence, 85)
         if "sexual_content" in violated_cats:
             sexual = max(sexual, 85)
+        
+        # 장소영~여기까지: 위협 키워드 감지 시 threat_score 강화
+        if rule_result.get("threat_detected", False):
+            threat = max(threat, 75.0)  # 위협 키워드 감지 시 최소 75점
 
         is_malicious = (
             toxicity > 55.0
@@ -1247,7 +1277,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main_groq_dual:app",
         host="0.0.0.0",
-        port=8080,
+        port=8000,  # ✅ 8000 포트로 통일 (일반적인 FastAPI 포트)
         reload=True,
         log_level="info",
     )

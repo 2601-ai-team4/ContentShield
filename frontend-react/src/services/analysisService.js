@@ -1,6 +1,7 @@
 // ==================== src/services/analysisService.js ====================
 import api from './api'
 import axios from 'axios'
+import * as assistantApi from '../api/assistant'
 
 // ✅ FastAPI(파이썬) 서버 주소 (필요 시 .env로 빼도 됨)
 const AI_BASE_URL = import.meta.env.VITE_AI_BASE_URL || 'http://localhost:8000'
@@ -35,5 +36,18 @@ export const analysisService = {
       }
     )
     return response.data
+  },
+
+  // ✅ AI Writing Assistant 함수들 (assistant.js 래퍼)
+  assistantImprove: async (text, tone = 'polite', language = 'ko', instruction = null) => {
+    return await assistantApi.improveText({ text, tone, language, instruction })
+  },
+
+  assistantReply: async (comment, context = null, replyType = 'constructive', language = 'ko') => {
+    return await assistantApi.generateReply({ comment, context, replyType, language })
+  },
+
+  assistantTemplate: async (situation, topic, tone = 'polite', language = 'ko') => {
+    return await assistantApi.generateTemplate({ situation, topic, tone, language })
   },
 }

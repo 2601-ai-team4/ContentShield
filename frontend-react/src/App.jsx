@@ -9,9 +9,11 @@ import Signup from './components/Auth/Signup'
 import PrivateRoute from './components/Auth/PrivateRoute'
 
 // 통합 대시보드 (V2)
+// 장소영~여기까지: DashboardV2 import (모든 대시보드 기능 통합)
 import UserDashboard from './components/User/DashboardV2'
 
 // ✅ Template Manager (AI Writing Assistant 역할)
+// 장소영~여기까지: TemplateManager import (AI Writing Assistant 기능)
 import TemplateManager from './components/User/TemplateManager'
 
 // 관리자 전용 기능
