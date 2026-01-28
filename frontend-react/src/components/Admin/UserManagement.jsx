@@ -8,27 +8,29 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const queryClient = useQueryClient()
 
-  const { data: users, isLoading } = useQuery('adminUsers', adminService.getAllUsers)
+  // ✅ v5 문법
+  const { data: users, isLoading } = useQuery({
+    queryKey: ['adminUsers'],
+    queryFn: adminService.getAllUsers
+  })
 
-  const suspendMutation = useMutation(
-    ({ userId, reason, days }) => adminService.suspendUser(userId, reason, days),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('adminUsers')
-        alert('User suspended')
-      },
-    }
-  )
+  // ✅ v5 문법
+  const suspendMutation = useMutation({
+    mutationFn: ({ userId, reason, days }) => adminService.suspendUser(userId, reason, days),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] })
+      alert('User suspended')
+    },
+  })
 
-  const flagMutation = useMutation(
-    ({ userId, reason }) => adminService.flagUser(userId, reason),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('adminUsers')
-        alert('User flagged')
-      },
-    }
-  )
+  // ✅ v5 문법
+  const flagMutation = useMutation({
+    mutationFn: ({ userId, reason }) => adminService.flagUser(userId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] })
+      alert('User flagged')
+    },
+  })
 
   const filteredUsers = users?.filter(user =>
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,19 +91,17 @@ export default function UserManagement() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs rounded ${
-                    user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
+                  <span className={`px-2 py-1 text-xs rounded ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
                     {user.role}
                   </span>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col space-y-1">
-                    <span className={`px-2 py-1 text-xs rounded w-fit ${
-                      user.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                      user.status === 'SUSPENDED' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs rounded w-fit ${user.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                        user.status === 'SUSPENDED' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                      }`}>
                       {user.status}
                     </span>
                     {user.isFlagged && (

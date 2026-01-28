@@ -5,9 +5,21 @@ import { Users, UserX, AlertTriangle, Activity } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function AdminDashboard() {
-  const { data: allUsers } = useQuery('adminUsers', adminService.getAllUsers)
-  const { data: flaggedUsers } = useQuery('flaggedUsers', adminService.getFlaggedUsers)
-  const { data: suspendedUsers } = useQuery('suspendedUsers', adminService.getSuspendedUsers)
+  // ✅ React Query v5 문법으로 수정
+  const { data: allUsers } = useQuery({
+    queryKey: ['adminUsers'],
+    queryFn: adminService.getAllUsers
+  })
+
+  const { data: flaggedUsers } = useQuery({
+    queryKey: ['flaggedUsers'],
+    queryFn: adminService.getFlaggedUsers
+  })
+
+  const { data: suspendedUsers } = useQuery({
+    queryKey: ['suspendedUsers'],
+    queryFn: adminService.getSuspendedUsers
+  })
 
   const stats = {
     totalUsers: allUsers?.length || 0,

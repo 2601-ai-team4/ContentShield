@@ -7,11 +7,12 @@ import { FileText, Download, Filter } from 'lucide-react'
 export default function LogViewer() {
   const [logType, setLogType] = useState('admin')
 
-  const { data: adminLogs } = useQuery(
-    ['adminLogs', logType],
-    () => adminService.getAdminLogs(),
-    { enabled: logType === 'admin' }
-  )
+  // ✅ React Query v5 문법
+  const { data: adminLogs } = useQuery({
+    queryKey: ['adminLogs', logType],
+    queryFn: () => adminService.getAdminLogs(),
+    enabled: logType === 'admin'
+  })
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -57,27 +58,35 @@ export default function LogViewer() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {adminLogs?.map((log, idx) => (
-                <tr key={idx}>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">
-                      {log.actionType}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    Admin #{log.adminId}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {log.targetType} #{log.targetId}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {log.description}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(log.createdAt).toLocaleString()}
+              {adminLogs?.length > 0 ? (
+                adminLogs.map((log, idx) => (
+                  <tr key={idx}>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">
+                        {log.actionType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      Admin #{log.adminId}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {log.targetType} #{log.targetId}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {log.description}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                    로그 데이터가 없습니다.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

@@ -62,7 +62,7 @@ export default function SuggestionManager() {
                 <td className="px-6 py-4 text-right">
                   <button
                     onClick={() => handleRespond(suggestion.id)}
-                    className="px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700"
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
                     Respond
                   </button>

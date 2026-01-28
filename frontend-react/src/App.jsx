@@ -1,4 +1,4 @@
-// [File: App.jsx / Date: 2026-01-25 / 작성자: Antigravity / 설명: 대시보드 메뉴별 독립적 Top-level URL 라우팅 적용]
+// [File: App.jsx / Date: 2026-01-25 / 작성자: Antigravity / 설명: Admin 전용 Dashboard 분리]
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
@@ -8,12 +8,13 @@ import Login from './components/Auth/Login'
 import Signup from './components/Auth/Signup'
 import PrivateRoute from './components/Auth/PrivateRoute'
 
-// 통합 대시보드 (V2)
-// 장소영~여기까지: DashboardV2 import (모든 대시보드 기능 통합)
+// 통합 대시보드 (V2) - 사용자용
 import UserDashboard from './components/User/DashboardV2'
 
+// ✅ 관리자 전용 대시보드 (분리)
+import AdminDashboard from './components/Admin/Dashboard'
+
 // ✅ Template Manager (AI Writing Assistant 역할)
-// 장소영~여기까지: TemplateManager import (AI Writing Assistant 기능)
 import TemplateManager from './components/User/TemplateManager'
 
 // ✅ Blocked Word Manager (차단 단어 관리)
@@ -22,12 +23,11 @@ import BlockedWordManager from './components/User/BlockedWordManager'
 // 관리자 전용 기능
 import UserManagement from './components/Admin/UserManagement'
 import NoticeManager from './components/Admin/NoticeManager'
+import LogViewer from './components/Admin/LogViewer'
+import SuggestionManager from './components/Admin/SuggestionManager'
 
 // 레이아웃
 import Navbar from './components/Layout/Navbar'
-
-// 관리자도 동일한 DashboardV2 사용
-const AdminDashboard = UserDashboard
 
 function App() {
   const { user } = useAuthStore()
@@ -90,21 +90,23 @@ function App() {
           </PrivateRoute>
         } />
 
-        {/* 🧠 Template Manager (독립 페이지 - sieun) */}
+        {/* 🧠 Template Manager (독립 페이지) */}
         <Route path="/writing" element={
           <PrivateRoute>
             <TemplateManager />
           </PrivateRoute>
         } />
 
-        {/* 🚫 Blocked Word Manager (차단 단어 관리 - 독립 페이지) */}
+        {/* 🚫 Blocked Word Manager (차단 단어 관리) */}
         <Route path="/blocked-words" element={
           <PrivateRoute>
             <BlockedWordManager />
           </PrivateRoute>
         } />
 
-        {/* 관리자 경로 */}
+        {/* =============================
+            관리자 경로 (Admin 전용)
+        ============================= */}
         <Route path="/admin/dashboard" element={
           <PrivateRoute requireAdmin>
             <AdminDashboard />
@@ -120,10 +122,23 @@ function App() {
             <NoticeManager />
           </PrivateRoute>
         } />
+        <Route path="/admin/logs" element={
+          <PrivateRoute requireAdmin>
+            <LogViewer />
+          </PrivateRoute>
+        } />
 
-        {/* 기본 리다이렉트 설정 */}
+        <Route path="/admin/suggestions" element={
+          <PrivateRoute requireAdmin>
+            <SuggestionManager />
+          </PrivateRoute>
+        } />
+
+        {/* 기본 리다이렉트 설정 (역할별 분기) */}
         <Route path="/" element={
-          user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+          user
+            ? <Navigate to={user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} />
+            : <Navigate to="/login" />
         } />
       </Routes>
     </div>
