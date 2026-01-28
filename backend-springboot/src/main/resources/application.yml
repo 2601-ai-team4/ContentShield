@@ -19,7 +19,7 @@ spring:
   # JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: create  # create: drops and re-creates the database schema on startup
+      ddl-auto: update  # update: updates the database schema only if needed
     show-sql: true
     properties:
       hibernate:

@@ -393,7 +393,9 @@ Provide your safety assessment for User's message:
     async def _llama_analysis(self, text: str, language: str, model: str = None) -> Dict[str, Any]:
         """Llama 3.1 분석 (상세 점수 + 추론)"""
         try:
-<<<<<<< Updated upstream
+            # 모델 선택
+            target_model = model if model else self.models["analysis"]
+            
             # 언어 감지 (파라미터가 없거나 불확실할 때)
             lang = language
             if not lang or lang not in ("ko", "en"):
@@ -407,17 +409,6 @@ Provide your safety assessment for User's message:
 Analyze the given text and provide detailed scores (0-100) for each category.
 
 Respond in valid JSON format only, no markdown:
-=======
-            # 모델 선택
-            target_model = model if model else self.models["analysis"]
-            
-            system_prompt = self._create_analysis_prompt(language)
-            
-            # JSON 포맷 강제
-            system_prompt += """
-IMPORTANT: You MUST return valid JSON only. No markdown formatting.
-Format:
->>>>>>> Stashed changes
 {
   "toxicity_score": <0-100>,
   "hate_speech_score": <0-100>,

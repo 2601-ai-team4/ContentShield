@@ -60,10 +60,9 @@ public class CommentService {
         // 1. Python AI 서버에 크롤링 요청
         List<Map<String, Object>> crawledComments = crawlYoutubeComments(url);
 
-        // 2. DB 저장 및 분석
-        return transactionTemplate.execute(txStatus -> {
-            int successCount = 0;
-            int failCount = 0;
+        // 2. DB 저장 (트랜잭션 1: 댓글 저장)
+        Map<String, Object> saveResult = transactionTemplate.execute(txStatus -> {
+            List<Long> ids = new ArrayList<>();
             int skippedCount = 0;
 
             // 🔥 차단 단어 목록 미리 조회 (루프 최적화)
@@ -75,7 +74,7 @@ public class CommentService {
                     // 중복 체크
                     if (externalId != null && !externalId.isEmpty()
                             && commentRepository.existsByUserIdAndExternalCommentId(userId, externalId)) {
-                        skipped++;
+                        skippedCount++;
                         continue;
                     }
 
@@ -123,33 +122,19 @@ public class CommentService {
                             .createdAt(LocalDateTime.now().withNano(0))
                             .build();
 
-<<<<<<< Updated upstream
                     if (isBlocked) {
                         comment.setContainsBlockedWord(true);
                         comment.setMatchedBlockedWord(matchedWord);
                     }
 
-                    commentRepository.save(comment);
-                    successCount++;
-=======
                     Comment saved = commentRepository.save(comment);
                     ids.add(saved.getCommentId());
->>>>>>> Stashed changes
 
                 } catch (Exception e) {
                     System.err.println("[ERROR] Failed to save comment: " + e.getMessage());
                 }
             }
-<<<<<<< Updated upstream
-
-            return Map.of(
-                    "totalCrawled", crawledComments.size(),
-                    "savedCount", successCount,
-                    "skippedCount", skippedCount,
-                    "failCount", failCount);
-=======
-            return Map.of("ids", ids, "skipped", skipped); // Explicitly specify types if needed, but Map.of infers
->>>>>>> Stashed changes
+            return Map.of("ids", ids, "skipped", skippedCount);
         });
 
         List<Long> savedIds = (List<Long>) saveResult.get("ids");

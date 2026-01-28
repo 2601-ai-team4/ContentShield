@@ -1686,20 +1686,25 @@ function CommentManagementView() {
             <p className="text-xs text-slate-500">수집된 데이터 중 현재 필터 조건에 맞는 목록입니다.</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-slate-950/50 p-1 rounded-lg border border-slate-800">
-              {['all', 'clean', 'malicious'].map(status => (
+            <div className="flex items-center gap-1 bg-slate-950/40 p-1 rounded-xl border border-slate-800 shadow-inner">
+              {[
+                { id: 'all', label: 'All', icon: Database },
+                { id: 'clean', label: 'Clean', icon: CheckCircle },
+                { id: 'malicious', label: 'Malicious', icon: AlertTriangle }
+              ].map(item => (
                 <button
-                  key={status}
+                  key={item.id}
                   onClick={() => {
-                    setFilterStatus(status);
+                    setFilterStatus(item.id);
                     setCurrentPage(0);
                   }}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all uppercase ${filterStatus === status
-                    ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black transition-all uppercase ${filterStatus === item.id
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
                     }`}
                 >
-                  {status}
+                  <item.icon size={12} className={filterStatus === item.id ? 'animate-pulse' : ''} />
+                  {item.label}
                 </button>
               ))}
             </div>
