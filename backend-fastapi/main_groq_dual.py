@@ -247,10 +247,10 @@ class GroqDualModelAnalyzer:
                 result = self._create_fallback_response(text, rule_result)
             elif use_dual_model:
                 # 2. 듀얼 모델 분석
-                result = await self._dual_model_analysis(text, language, rule_result)
+                result = await self._dual_model_analysis(text, language, rule_result, analysis_model)
             else:
                 # 3. 단일 모델 분석
-                result = await self._single_model_analysis(text, language, rule_result)
+                result = await self._single_model_analysis(text, language, rule_result, analysis_model)
             
             # 사용자 차단 단어 처리 추가
             result["is_blocked"] = rule_result.get("is_blocked_by_user", False)
@@ -492,10 +492,11 @@ Respond in valid JSON format only, no markdown:
         self,
         text: str,
         language: str,
-        rule_result: Dict
+        rule_result: Dict,
+        analysis_model: str = None
     ) -> Dict[str, Any]:
         """단일 모델 분석 (Llama 3.1만 사용)"""
-        llama_result = await self._llama_analysis(text, language)
+        llama_result = await self._llama_analysis(text, language, model=analysis_model)
         return self._combine_results(rule_result, llama_result)
     
     def _rule_based_filter(self, text: str, language: str, custom_blocked_words: List[str] = None) -> Dict[str, Any]:
@@ -1500,10 +1501,11 @@ async def analyze_text(request: TextAnalysisRequest):
     """텍스트 분석 (듀얼 모델)"""
     logger.info(f"Analyzing text (length: {len(request.text)}, dual: {request.use_dual_model})")
     result = await analyzer.analyze_text(
-        request.text, 
-        request.language,
-        request.use_dual_model,
-        request.custom_blocked_words
+        text=request.text, 
+        language=request.language,
+        use_dual_model=request.use_dual_model,
+        model_name=request.model_name,
+        custom_blocked_words=request.custom_blocked_words
     )
     return result
 
