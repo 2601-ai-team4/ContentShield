@@ -14,7 +14,7 @@ import {
   TrendingUp, Shield, AlertTriangle, CheckCircle, FileText, Plus, Edit, Trash2,
   Wand2, Copy, RotateCcw, Sparkles, UserX, Search, MessageSquare,
   User, Activity, Bell, Lock, Save, Send, Lightbulb,
-  Youtube, Link as LinkIcon, Calendar as CalendarIcon, Globe, RefreshCw, Zap, Database
+  Youtube, Link as LinkIcon, Calendar as CalendarIcon, Globe, RefreshCw, Zap, Database, MessageCircle, X // ✨ 추가
 } from 'lucide-react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import dashboardService from '../../services/dashboardService';
@@ -22,6 +22,7 @@ import ProfileSettings from './ProfileSettings';
 import TemplateManager from './TemplateManager';
 import Statistics from './Statistics';
 import RagChat from './RagChat'; // ✨ RAG Chat Import
+import { blacklistService } from '../../services/blacklistService'; // ✨ 추가
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
   <div className={`bg-slate-900 text-slate-100 rounded-xl border border-slate-800 shadow-xl ${className}`}>{children}</div>
@@ -47,6 +48,7 @@ const Textarea = (props) => <textarea className="flex min-h-[80px] w-full rounde
 export default function DashboardV2() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [showRagChat, setShowRagChat] = useState(false); // ✨ RAG 채팅 상태 추가
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Shield, path: '/dashboard' },
@@ -103,10 +105,38 @@ export default function DashboardV2() {
       </main>
 
       {/* ✨ RAG Chat Floating Button */}
-      <RagChat />
+      {/* ✨ RAG Chat Floating Button */}
+      <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000 }}>
+        <Button
+          onClick={() => setShowRagChat(!showRagChat)}
+          className="h-14 w-14 rounded-full shadow-2xl bg-blue-600 hover:bg-blue-500 text-white border-4 border-slate-900"
+        >
+          {showRagChat ? <X size={24} /> : <MessageCircle size={28} />}
+        </Button>
+      </div>
+
+      {/* ✨ RAG Chat Panel */}
+      {showRagChat && (
+        <div style={{
+          position: 'fixed',
+          bottom: '90px',
+          right: '24px',
+          width: '400px',
+          maxWidth: 'calc(100vw - 48px)',
+          zIndex: 1000,
+          boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+        }} className="animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <RagChat />
+        </div>
+      )}
     </div>
   );
 }
+
+// ✨ 아이콘 추가
+
+// ✨ 아이콘 추가 (Moved to top)
+
 
 // --- [1. Dashboard View] ---
 function DashboardView() {
@@ -1735,28 +1765,28 @@ function CommentManagementView() {
                         checked={selectedIds.includes(comment.commentId)}
                         onChange={() => toggleSelect(comment.commentId)}
                       />
-                      
+
                     </td>
                     <td className="p-4 align-top">
-  <div className="flex items-center gap-2">
-    <div className="flex flex-col">
-      <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
-        {comment.authorIdentifier}
-      </span>
-      <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
-        YOUTUBE_USER
-      </span>
-    </div>
-    {/* ID 복사 버튼 - 오른쪽에 배치 */}
-    <button
-      onClick={() => handleCopyId(comment.authorIdentifier)}
-      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
-      title="ID 복사"
-    >
-      <Copy size={14} />
-    </button>
-  </div>
-</td>
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
+                            {comment.authorIdentifier}
+                          </span>
+                          <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
+                            YOUTUBE_USER
+                          </span>
+                        </div>
+                        {/* ID 복사 버튼 - 오른쪽에 배치 */}
+                        <button
+                          onClick={() => handleCopyId(comment.authorIdentifier)}
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
+                          title="ID 복사"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="p-4 align-top">
                       <p className="text-sm text-slate-300 leading-relaxed line-clamp-2 max-w-xl group-hover:line-clamp-none transition-all duration-300">
                         {comment.commentText}

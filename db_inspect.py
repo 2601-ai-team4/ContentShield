@@ -26,12 +26,25 @@ try:
     for col in columns:
         print(col)
 
-    if result:
-        print("=== DB Analysis Result ===")
-        for key, value in result.items():
-            print(f"{key}: {value}")
-    else:
-        print("No matching comment found in DB.")
+    # Check analysis_results count for today
+    query_today_analysis = "SELECT COUNT(*) FROM analysis_results WHERE DATE(analyzed_at) = CURDATE()"
+    cursor.execute(query_today_analysis)
+    today_analysis = cursor.fetchone()
+    print(f"🔥 Analysis Results Today: {today_analysis}")
+
+    # Check comments count for today (created_at)
+    query_today_comments = "SELECT COUNT(*) FROM comments WHERE DATE(created_at) = CURDATE()"
+    cursor.execute(query_today_comments)
+    today_comments = cursor.fetchone()
+    print(f"📝 Comments Created Today: {today_comments}")
+    
+    # Check recent results
+    query_recent = "SELECT analyzed_at FROM analysis_results ORDER BY analyzed_at DESC LIMIT 5"
+    cursor.execute(query_recent)
+    rows = cursor.fetchall()
+    print("Recent Analysis Dates:")
+    for row in rows:
+        print(row['analyzed_at'])
 
     conn.close()
 

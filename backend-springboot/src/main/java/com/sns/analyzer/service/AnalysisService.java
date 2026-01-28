@@ -34,6 +34,7 @@ public class AnalysisService {
     /**
      * 댓글 분석
      */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public AnalysisResult analyzeComment(Long commentId, Long userId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found"));

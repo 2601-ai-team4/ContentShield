@@ -71,9 +71,16 @@ public class CommentService {
 
             for (Map<String, Object> c : crawledComments) {
                 try {
+                    String externalId = (String) c.get("external_id");
+                    // 중복 체크
+                    if (externalId != null && !externalId.isEmpty()
+                            && commentRepository.existsByUserIdAndExternalCommentId(userId, externalId)) {
+                        skipped++;
+                        continue;
+                    }
+
                     String text = (String) c.get("text");
                     String author = (String) c.get("author");
-                    String externalId = (String) c.get("external_id");
                     String publishDateStr = (String) c.get("publish_date");
 
                     if (text == null || text.trim().isEmpty())
@@ -99,7 +106,6 @@ public class CommentService {
                             }
                         }
                     }
-
                     Comment comment = Comment.builder()
                             .userId(userId)
                             .platform("YOUTUBE")
@@ -117,6 +123,7 @@ public class CommentService {
                             .createdAt(LocalDateTime.now().withNano(0))
                             .build();
 
+<<<<<<< Updated upstream
                     if (isBlocked) {
                         comment.setContainsBlockedWord(true);
                         comment.setMatchedBlockedWord(matchedWord);
@@ -124,19 +131,55 @@ public class CommentService {
 
                     commentRepository.save(comment);
                     successCount++;
+=======
+                    Comment saved = commentRepository.save(comment);
+                    ids.add(saved.getCommentId());
+>>>>>>> Stashed changes
 
                 } catch (Exception e) {
-                    failCount++;
-                    e.printStackTrace();
+                    System.err.println("[ERROR] Failed to save comment: " + e.getMessage());
                 }
             }
+<<<<<<< Updated upstream
 
             return Map.of(
                     "totalCrawled", crawledComments.size(),
                     "savedCount", successCount,
                     "skippedCount", skippedCount,
                     "failCount", failCount);
+=======
+            return Map.of("ids", ids, "skipped", skipped); // Explicitly specify types if needed, but Map.of infers
+>>>>>>> Stashed changes
         });
+
+        List<Long> savedIds = (List<Long>) saveResult.get("ids");
+        int skippedCount = (int) saveResult.get("skipped");
+
+        // 3. 분석 수행 (트랜잭션 2...N: 개별 분석)
+        // comments are already committed here, so REQUIRES_NEW in analyzeComment will
+        // work perfectly.
+        int successCount = 0;
+        int failCount = 0;
+        List<AnalysisResult> results = new ArrayList<>();
+
+        for (Long id : savedIds) {
+            try {
+                AnalysisResult result = analysisService.analyzeComment(id, userId);
+                results.add(result);
+                successCount++;
+            } catch (Exception e) {
+                failCount++;
+                System.err.println("[ERROR] Analysis Failed for commentId " + id + ": " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        return Map.of(
+                "totalCrawled", crawledComments.size(),
+                "analyzedCount", successCount,
+                "skippedCount", skippedCount,
+                "failCount", failCount,
+                "results", results);
     }
 
     /**

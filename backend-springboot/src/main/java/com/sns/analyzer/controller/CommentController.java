@@ -21,6 +21,7 @@ public class CommentController {
 
     private final CommentService commentService;
     private final UserService userService;
+    private final com.sns.analyzer.service.AnalysisService analysisService;
 
     @PostMapping("/crawl")
     public ResponseEntity<?> crawlAndAnalyze(
@@ -124,5 +125,22 @@ public class CommentController {
         com.sns.analyzer.entity.User user = userService.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         return user.getUserId();
+    }
+
+    @GetMapping("/test-analysis")
+    public ResponseEntity<?> testAnalysis(Authentication authentication) {
+        try {
+            Long userId = 1L; // Hardcode for testing
+            System.out.println("[DEBUG] Testing analysis for user: " + userId);
+
+            Map<String, Object> result = analysisService.analyzeText("테스트 댓글입니다. 훌륭해요!", userId);
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            java.io.StringWriter sw = new java.io.StringWriter();
+            java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+            e.printStackTrace(pw);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage(), "trace", sw.toString()));
+        }
     }
 }

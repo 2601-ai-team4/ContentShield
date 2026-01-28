@@ -16,7 +16,8 @@ import json
 import re
 import asyncio
 from dotenv import load_dotenv
-from rag_service import RAGService # ✨ RAG Service Import
+from rag_service import RAGService # ✨ RAG 서비스 추가
+from langsmith import traceable # ✨ LangSmith Tracing 추가
 
 # ✨ .env 파일 로드
 load_dotenv()
@@ -31,6 +32,15 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# RAG 서비스 초기화 (전역)
+try:
+    # Text-to-SQL 모드 (Groq Llama 3.1 8b 사용 - 안정)
+    rag_service = RAGService(model_name="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"))
+    logger.info("✅ RAG Service (Text-to-SQL) initialized with Groq Llama 3.1 8b")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize RAG Service: {e}")
+    rag_service = None
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -57,6 +67,7 @@ class TextAnalysisRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000)
     language: str = Field(default="ko")
     use_dual_model: bool = Field(default=True, description="두 모델 모두 사용 여부")
+    model_name: Optional[str] = Field(default=None, description="사용할 분석 모델 (예: llama-3.1-8b-instant, gemma2-9b-it)")
     custom_blocked_words: List[str] = Field(default=[], description="사용자 정의 차단 단어")  # 추가!
 
 class AnalysisResponse(BaseModel):
@@ -125,6 +136,16 @@ class QuickAnalysis(BaseModel):
     has_profanity: bool
     has_aggression: bool
     misunderstanding_risk: str  # "없음", "낮음", "있음", "높음"
+
+
+# ==================== 🆕 RAG Types ====================
+
+class RAGLoadRequest(BaseModel):
+    directory_path: str = Field(..., description="문서가 있는 디렉토리 경로 (예: docs)")
+
+class RAGChatRequest(BaseModel):
+    question: str = Field(..., description="질문 내용")
+
 
 
 class SuggestionOption(BaseModel):
@@ -198,16 +219,23 @@ class GroqDualModelAnalyzer:
         logger.info("Groq Dual Model Analyzer initialized")
         logger.info(f"  - Guard Model: {self.models['guard']}")
         logger.info(f"  - Analysis Model: {self.models['analysis']}")
+
+
+
     
+    @traceable(run_type="chain", name="Dual Model Analysis")
     async def analyze_text(
         self, 
         text: str, 
         language: str = "ko",
         use_dual_model: bool = True,
-        custom_blocked_words: List[str] = None  # 추가!
+        model_name: Optional[str] = None, # ✨ 추가
+        custom_blocked_words: List[str] = None
     ) -> AnalysisResponse:
         """텍스트 분석 (듀얼 모델)"""
         import time
+        # 모델 선택
+        analysis_model = model_name if model_name else self.models["analysis"]
         start_time = time.time()
         
         try:
@@ -251,12 +279,13 @@ class GroqDualModelAnalyzer:
         self, 
         text: str, 
         language: str,
-        rule_result: Dict
+        rule_result: Dict,
+        analysis_model: str # Added analysis_model parameter
     ) -> Dict[str, Any]:
         """듀얼 모델 분석 (Guard + Llama 3.1 병렬 실행)"""
         try:
             guard_task = self._llama_guard_check(text, language)
-            llama_task = self._llama_analysis(text, language)
+            llama_task = self._llama_analysis(text, language, model=analysis_model) # Pass model here
             
             guard_result, llama_result = await asyncio.gather(
                 guard_task,
@@ -360,9 +389,11 @@ Provide your safety assessment for User's message:
             logger.error(f"Guard check failed: {e}")
             return self._fallback_guard_result()
     
-    async def _llama_analysis(self, text: str, language: str) -> Dict[str, Any]:
-        """Llama 3.1 상세 분석"""
+    @traceable(run_type="llm", name="Groq Llama Analysis")
+    async def _llama_analysis(self, text: str, language: str, model: str = None) -> Dict[str, Any]:
+        """Llama 3.1 분석 (상세 점수 + 추론)"""
         try:
+<<<<<<< Updated upstream
             # 언어 감지 (파라미터가 없거나 불확실할 때)
             lang = language
             if not lang or lang not in ("ko", "en"):
@@ -376,6 +407,17 @@ Provide your safety assessment for User's message:
 Analyze the given text and provide detailed scores (0-100) for each category.
 
 Respond in valid JSON format only, no markdown:
+=======
+            # 모델 선택
+            target_model = model if model else self.models["analysis"]
+            
+            system_prompt = self._create_analysis_prompt(language)
+            
+            # JSON 포맷 강제
+            system_prompt += """
+IMPORTANT: You MUST return valid JSON only. No markdown formatting.
+Format:
+>>>>>>> Stashed changes
 {
   "toxicity_score": <0-100>,
   "hate_speech_score": <0-100>,
@@ -410,7 +452,7 @@ Respond in valid JSON format only, no markdown:
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": self.models["analysis"],
+                        "model": target_model,
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
@@ -1772,6 +1814,54 @@ async def health_check():
         "ai_assistant_ready": True,
         "timestamp": datetime.now().isoformat()
     }
+
+# ==================== 🆕 RAG Endpoints ====================
+
+@app.post("/rag/clear-history")
+async def clear_rag_history():
+    """RAG 대화 기록 초기화"""
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG Service not initialized")
+    
+    rag_service.clear_history()
+    return {"status": "success", "message": "Conversation history cleared"}
+
+@app.post("/rag/load", summary="문서 로드 및 벡터 DB 구축")
+async def load_documents(request: RAGLoadRequest):
+    """지정된 디렉토리의 문서를 로드하여 벡터 인덱스 생성"""
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG Service is not initialized")
+    
+    try:
+        # 백그라운드에서 실행하면 좋겠지만, 일단 동기로 처리 (간단 구현)
+        # 대량의 문서라면 BackgroundTasks 사용 권장
+        result = rag_service.load_documents(request.directory_path)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to load documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/rag/chat", summary="RAG 기반 질의응답")
+async def rag_chat(request: RAGChatRequest):
+    """문서 기반 질문 답변"""
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG Service is not initialized")
+    
+    try:
+        result = rag_service.query(request.question)
+        return result
+    except Exception as e:
+        logger.error(f"RAG chat failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/rag/clear", summary="벡터 DB 초기화")
+async def clear_vector_db():
+    """벡터 저장소 삭제"""
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG Service is not initialized")
+    
+    success = rag_service.clear_vector_store()
+    return {"success": success, "message": "Vector store cleared" if success else "No vector store found"}
 
 if __name__ == "__main__":
     import uvicorn
