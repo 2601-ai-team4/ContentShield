@@ -21,7 +21,7 @@ import dashboardService from '../../services/dashboardService';
 import ProfileSettings from './ProfileSettings';
 import TemplateManager from './TemplateManager';
 import Statistics from './Statistics';
-import { blacklistService } from '../../services/blacklistService';
+import RagChat from './RagChat'; // ✨ RAG Chat Import
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
   <div className={`bg-slate-900 text-slate-100 rounded-xl border border-slate-800 shadow-xl ${className}`}>{children}</div>
@@ -101,6 +101,9 @@ export default function DashboardV2() {
           {activeTab === 'profile' && <ProfileSettings />}
         </div>
       </main>
+
+      {/* ✨ RAG Chat Floating Button */}
+      <RagChat />
     </div>
   );
 }

@@ -15,7 +15,8 @@ import httpx
 import json
 import re
 import asyncio
-from dotenv import load_dotenv  # ✨ 추가
+from dotenv import load_dotenv
+from rag_service import RAGService # ✨ RAG Service Import
 
 # ✨ .env 파일 로드
 load_dotenv()
@@ -1732,6 +1733,33 @@ async def models_info():
             "reply_types": ["constructive", "grateful", "apologetic", "defensive"]
         }
     }
+
+
+# ==================== 🆕 RAG Endpoints (Restored) ====================
+
+# RAG 서비스 초기화
+rag_service = RAGService(api_key=os.getenv("GROQ_API_KEY"))
+
+class RagQueryRequest(BaseModel):
+    question: str
+
+class RagLoadRequest(BaseModel):
+    directory: str = "docs"
+
+@app.post("/rag/query")
+async def rag_query(request: RagQueryRequest):
+    """RAG 질의응답"""
+    return rag_service.query(request.question)
+
+@app.post("/rag/load")
+async def rag_load(request: RagLoadRequest):
+    """RAG 문서 로드 (DB 연결 확인)"""
+    return rag_service.load_documents(request.directory)
+
+@app.post("/rag/clear")
+async def rag_clear():
+    """RAG 대화 기록 초기화"""
+    return {"success": rag_service.clear_history()}
 
 
 @app.get("/health")
