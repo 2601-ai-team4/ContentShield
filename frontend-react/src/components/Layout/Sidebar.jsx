@@ -9,7 +9,9 @@ import {
   Wand2,
   Users,
   Bell,
-  FileText
+  FileText,
+  MessageSquare,
+  Lightbulb
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -29,14 +31,14 @@ export default function Sidebar() {
 
   const userLinks = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/analysis', icon: FileSearch, label: 'Comment Analysis' },
+    { path: '/comments', icon: MessageSquare, label: 'Comments' },
+    { path: '/blacklist', icon: UserX, label: 'Blacklist' },
     { path: '/statistics', icon: BarChart3, label: 'Statistics' },
-    { path: '/blacklist', icon: UserX, label: 'Blacklist Manager' },
-
-    // ✅ TemplateManager 연결
-    { path: '/writing', icon: Wand2, label: 'AI Writing Assistant' },
-
+    { path: '/aianalysis', icon: FileSearch, label: 'Comment Analysis' },
+    { path: '/writing', icon: Wand2, label: 'AI Assistant' },
+    { path: '/suggestions', icon: Lightbulb, label: 'Suggestions' },
     { path: '/profile', icon: Settings, label: 'Settings' },
+    { path: '/notices', icon: Bell, label: 'notices' },
   ]
 
   const adminLinks = [
@@ -44,6 +46,7 @@ export default function Sidebar() {
     { path: '/admin/users', icon: Users, label: 'User Management' },
     { path: '/admin/notices', icon: Bell, label: 'Notices' },
     { path: '/admin/logs', icon: FileText, label: 'System Logs' },
+    { path: '/admin/suggestions', icon: MessageSquare, label: 'Suggestions' },
   ]
 
   return (

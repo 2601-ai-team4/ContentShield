@@ -119,6 +119,21 @@ export const assistantReply = async (originalComment, context = null, replyType 
   }
 }
 
+export const assistantTemplate = async (situation, topic, tone = 'polite', language = 'ko') => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/assistant/template`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ situation, topic, tone, language })
+    });
+    if (!response.ok) throw new Error('템플릿 생성 실패');
+    return await response.json();
+  } catch (error) {
+    console.error('Assistant template failed:', error);
+    throw error;
+  }
+}
+
 // ==================== 유틸리티 및 헬스체크 (유지) ====================
 
 export const getRiskLevelColor = (riskLevel) => {
@@ -143,6 +158,7 @@ export const analysisService = {
   assistantAnalyze,
   assistantImprove,
   assistantReply,
+  assistantTemplate,
   getRiskLevelColor,
   formatProcessingTime
 };

@@ -1,6 +1,7 @@
 /** [File: DashboardV2.jsx / Date: 2026-01-22 / 설명: 대시보드 실시간 통계 데이터 연동 로직 복구 및 UI 레이아웃 수정] */
 /** [File: DashboardV2.jsx / Date: 2026-01-22 / 작성자: Antigravity / 설명: 대시보드 메뉴별 독립적 Top-level URL 라우팅 적용 및 30초 간격 실시간 데이터 자동 갱신(setInterval) 로직 추가] */
 /** [File: DashboardV2.jsx / Date: 2026-01-22 / 작성자: 윤혜정 / 설명: AI 분석 연동 및 프로필 관리 기능 추가] */
+/** [File: DashboardV2.jsx / Date: 2026-01-29 / 작성자: 원종성 / 설명: 대시보드 페이지 공지사항 표시 기능 추가 및 공지사항 리스트 페이지 추가] */
 import { blockedWordService } from '../../services/blockedWordService';
 import React, { useState, useEffect } from 'react';
 import { userService } from '../../services/userService';
@@ -14,7 +15,8 @@ import {
   TrendingUp, Shield, AlertTriangle, CheckCircle, FileText, Plus, Edit, Trash2,
   Wand2, Copy, RotateCcw, Sparkles, UserX, Search, MessageSquare,
   User, Activity, Bell, Lock, Save, Send, Lightbulb,
-  Youtube, Link as LinkIcon, Calendar as CalendarIcon, Globe, RefreshCw, Zap, Database
+  Youtube, Link as LinkIcon, Calendar as CalendarIcon, Globe, RefreshCw, Zap, Database, Pin,
+  Eye, ChevronRight, Filter, Calendar
 } from 'lucide-react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import dashboardService from '../../services/dashboardService';
@@ -22,6 +24,9 @@ import ProfileSettings from './ProfileSettings';
 import TemplateManager from './TemplateManager';
 import Statistics from './Statistics';
 import { blacklistService } from '../../services/blacklistService';
+import { noticeService } from '../../services/noticeService';
+import { useQuery } from '@tanstack/react-query';
+import NoticeDetail from './NoticeDetail';
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
   <div className={`bg-slate-900 text-slate-100 rounded-xl border border-slate-800 shadow-xl ${className}`}>{children}</div>
@@ -48,6 +53,14 @@ export default function DashboardV2() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
+  // ✅ /notices/:noticeId 패턴 체크
+  const noticeDetailMatch = pathname.match(/^\/notices\/(\d+)$/);
+
+  // ✅ NoticeDetail 페이지면 바로 렌더링
+  if (noticeDetailMatch) {
+    return <NoticeDetail />;
+  }
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Shield, path: '/dashboard' },
     { id: 'analysis', label: 'AI Analysis', icon: Search, path: '/aianalysis' },
@@ -57,50 +70,23 @@ export default function DashboardV2() {
     // { id: 'templates', label: 'Templates', icon: FileText, path: '/templates' },  // Removed by user request
     { id: 'stats', label: 'Statistics', icon: Activity, path: '/statistics' },
     { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
+    { id: 'notices', label: 'Notices', icon: Bell, path: '/notices' },
   ];
 
   // URL 경로에 따라 activeTab 결정
   const activeTab = menuItems.find(item => item.path === pathname)?.id || 'dashboard';
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-200 font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-slate-800 bg-slate-900/50 backdrop-blur-xl hidden md:block">
-        <div className="p-8">
-          <h2 className="text-2xl font-black text-blue-500 flex items-center gap-2 tracking-tighter">
-            <Shield className="fill-blue-500/20" /> GUARD AI
-          </h2>
-        </div>
-        <nav className="px-4 space-y-2">
-          {menuItems.map(item => (
-            <RouterLink
-              key={item.id}
-              to={item.path}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === item.id
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                : 'text-slate-500 hover:bg-slate-800 hover:text-slate-200'
-                }`}
-            >
-              <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-              {item.label}
-            </RouterLink>
-          ))}
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950">
-        <div className="max-w-6xl mx-auto">
-          {activeTab === 'dashboard' && <DashboardView />}
-          {activeTab === 'analysis' && <CommentAnalysisView />}
-          {activeTab === 'management' && <CommentManagementView />}
-          {activeTab === 'blacklist' && <BlacklistView />}
-          {activeTab === 'writing' && <TemplateManager />}
-          {/* {activeTab === 'templates' && <TemplateView />} */}
-          {activeTab === 'stats' && <StatisticsView />}
-          {activeTab === 'profile' && <ProfileSettings />}
-        </div>
-      </main>
+    <div className="space-y-8">
+      {activeTab === 'dashboard' && <DashboardView />}
+      {activeTab === 'analysis' && <CommentAnalysisView />}
+      {activeTab === 'management' && <CommentManagementView />}
+      {activeTab === 'blacklist' && <BlacklistView />}
+      {activeTab === 'writing' && <TemplateManager />}
+      {/* {activeTab === 'templates' && <TemplateView />} */}
+      {activeTab === 'stats' && <StatisticsView />}
+      {activeTab === 'profile' && <ProfileSettings />}
+      {activeTab === 'notices' && <NoticeListView />}
     </div>
   );
 }
@@ -117,6 +103,13 @@ function DashboardView() {
   });
   const [loading, setLoading] = useState(true);
 
+  // 공지사항 state 추가 - 원종성
+  const navigate = useNavigate();
+  const [allNotices, setAllNotices] = useState([]);
+  const [displayedNotices, setDisplayedNotices] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [noticesLoading, setNoticesLoading] = useState(true);
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -129,20 +122,72 @@ function DashboardView() {
       }
     };
 
+    // ✅ 공지사항 조회
+    const fetchNotices = async () => {
+      try {
+        console.log('🔔 [Dashboard] 공지사항 조회 시작...');
+        const data = await noticeService.getAll();
+        console.log('🔔 [Dashboard] 공지사항 응답:', data);
+
+        if (data && Array.isArray(data)) {
+          const sortedNotices = data.sort((a, b) => {
+            if (a.isPinned !== b.isPinned) return b.isPinned ? 1 : -1;
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          });
+
+          setAllNotices(sortedNotices);
+          setDisplayedNotices(sortedNotices.slice(0, 2));  // ✅ 처음 2개만
+          console.log('🔔 [Dashboard] 표시할 공지사항:', sortedNotices.slice(0, 2));
+        }
+      } catch (error) {
+        console.error("❌ [Dashboard] 공지사항 조회 실패:", error);
+      } finally {
+        setNoticesLoading(false);
+      }
+    };
+
     // 최초 로드 시 실행
     fetchStats();
+    // 공지사항 조회 - 원종성
+    fetchNotices();
 
     // 30초마다 실시간 데이터 갱신 (setInterval 추가)
     const interval = setInterval(() => {
       console.log("[DEBUG] 실시간 데이터 새로고침 중...");
       fetchStats();
+      fetchNotices();
     }, 30000);
 
     // 컴포넌트 언마운트 시 인터벌 제거 (Cleanup)
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) return <div className="text-center p-20 text-slate-500 text-sm animate-pulse">데이터를 불러오는 중...</div>;
+  // ✅ 공지사항 로테이션 (5초마다)
+  useEffect(() => {
+    if (allNotices.length <= 2) return;  // 2개 이하면 로테이션 불필요
+
+    const rotationInterval = setInterval(() => {
+      setCurrentIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 2) % allNotices.length;
+        const endIndex = Math.min(nextIndex + 2, allNotices.length);
+
+        // 끝에 도달하면 처음부터
+        if (nextIndex >= allNotices.length - 1) {
+          setDisplayedNotices(allNotices.slice(0, 2));
+          return 0;
+        }
+
+        setDisplayedNotices(allNotices.slice(nextIndex, endIndex));
+        return nextIndex;
+      });
+    }, 5000);  // 5초마다 로테이션
+
+    return () => clearInterval(rotationInterval);
+  }, [allNotices]);
+
+  if (loading) {
+    return <div className="text-center p-20 text-slate-500 text-sm animate-pulse">데이터를 불러오는 중...</div>;
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -150,6 +195,76 @@ function DashboardView() {
         <h1 className="text-3xl font-bold text-white">System Overview</h1>
         <p className="text-slate-500">실시간 보안 및 댓글 분석 현황입니다.</p>
       </header>
+
+      {/* ✅ 공지사항 카드 추가 (통계 카드 위에) */}
+      {displayedNotices.length > 0 && (
+        <Card>
+          <CardHeader>
+            {/* ✅ 제목과 더보기 버튼을 flex로 양쪽 배치 */}
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="text-blue-400" /> 📢 공지사항
+              </CardTitle>
+              <div className="flex items-center gap-3">
+                {/* ✅ 로테이션 인디케이터 (3개 이상일 때만) */}
+                {allNotices.length > 2 && (
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(allNotices.length / 2) }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`w-1.5 h-1.5 rounded-full transition-all ${idx === Math.floor(currentIndex / 2)
+                          ? 'bg-blue-400 w-4'
+                          : 'bg-slate-700'
+                          }`}
+                      />
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => navigate('/notices')}
+                  className="text-sm text-slate-400 hover:text-blue-400 transition-colors"
+                >
+                  더보기 →
+                </button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {displayedNotices.map((notice) => (
+                <div
+                  key={notice.noticeId}
+                  className="flex items-start gap-3 p-4 rounded-lg bg-slate-800/80 border border-slate-600 hover:bg-blue-900/20 hover:border-blue-500/50 transition-all duration-200 cursor-pointer group"
+                  onClick={() => window.location.href = `/notices/${notice.noticeId}`}  // ✅ 공지 클릭 시에도 이동
+                >
+                  {notice.isPinned && (
+                    <Pin size={16} className="text-blue-400 mt-1 flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-sm font-semibold text-white group-hover:text-blue-300 transition-colors">
+                        {notice.title}
+                      </span>
+                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${getNoticeTypeColor(notice.noticeType)}`}>
+                        {notice.noticeType}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 line-clamp-2 group-hover:text-slate-300 transition-colors">
+                      {notice.content}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-600 group-hover:text-slate-500 whitespace-nowrap transition-colors">
+                    {new Date(notice.createdAt).toLocaleDateString('ko-KR', {
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="Total" value={stats.total.toLocaleString()} icon={Shield} color="text-blue-400" />
@@ -1732,28 +1847,28 @@ function CommentManagementView() {
                         checked={selectedIds.includes(comment.commentId)}
                         onChange={() => toggleSelect(comment.commentId)}
                       />
-                      
+
                     </td>
                     <td className="p-4 align-top">
-  <div className="flex items-center gap-2">
-    <div className="flex flex-col">
-      <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
-        {comment.authorIdentifier}
-      </span>
-      <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
-        YOUTUBE_USER
-      </span>
-    </div>
-    {/* ID 복사 버튼 - 오른쪽에 배치 */}
-    <button
-      onClick={() => handleCopyId(comment.authorIdentifier)}
-      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
-      title="ID 복사"
-    >
-      <Copy size={14} />
-    </button>
-  </div>
-</td>
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
+                            {comment.authorIdentifier}
+                          </span>
+                          <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
+                            YOUTUBE_USER
+                          </span>
+                        </div>
+                        {/* ID 복사 버튼 - 오른쪽에 배치 */}
+                        <button
+                          onClick={() => handleCopyId(comment.authorIdentifier)}
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
+                          title="ID 복사"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="p-4 align-top">
                       <p className="text-sm text-slate-300 leading-relaxed line-clamp-2 max-w-xl group-hover:line-clamp-none transition-all duration-300">
                         {comment.commentText}
@@ -1888,4 +2003,235 @@ function CommentManagementView() {
       )}
     </div>
   );
+}
+
+// ========================================
+// 0. NoticeListView 컴포넌트
+// ========================================
+function NoticeListView() {
+  const navigate = useNavigate();
+  const [selectedType, setSelectedType] = useState('ALL');
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+
+  const { data: pageData, isLoading, error } = useQuery({
+    queryKey: ['notices-paged', page],
+    queryFn: () => noticeService.getPaged(page, pageSize),
+  });
+
+  const notices = pageData?.content || [];
+  const totalPages = pageData?.totalPages || 1;
+  const currentPage = pageData?.number || 0;
+  const totalElements = pageData?.totalElements || 0;
+
+  const filteredNotices = notices.filter(notice =>
+    selectedType === 'ALL' || notice.noticeType === selectedType
+  );
+
+  const handleNoticeClick = (noticeId) => {
+    navigate(`/notices/${noticeId}`);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-20">
+        <div className="text-slate-500 animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center p-20">
+        <div className="text-red-500">에러: {error.message}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* 헤더 */}
+      <header>
+        <h1 className="text-3xl font-bold text-white flex items-center gap-3 mb-2">
+          <Bell className="text-blue-400" />
+          공지사항
+        </h1>
+        <p className="text-slate-500">중요한 소식과 업데이트를 확인하세요.</p>
+      </header>
+
+      {/* 필터 */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2">
+            <Filter className="text-slate-500" size={18} />
+            <span className="text-sm text-slate-400 mr-3">필터:</span>
+            <div className="flex gap-2 flex-wrap">
+              {['ALL', 'GENERAL', 'MAINTENANCE', 'UPDATE', 'URGENT'].map(type => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    setSelectedType(type);
+                    setPage(0);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${selectedType === type
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    }`}
+                >
+                  {type === 'ALL' ? '전체' : getTypeLabel(type)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 공지사항 목록 */}
+      <div className="space-y-3">
+        {filteredNotices.length > 0 ? (
+          filteredNotices.map((notice) => (
+            <Card key={notice.noticeId} className="overflow-hidden hover:border-blue-500/30 transition-all">
+              <div
+                onClick={() => handleNoticeClick(notice.noticeId)}
+                className="p-6 cursor-pointer hover:bg-slate-800/50 transition-all group"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {notice.isPinned && (
+                        <Pin size={18} className="text-blue-400 fill-blue-400/20" />
+                      )}
+                      <h3 className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors">
+                        {notice.title}
+                      </h3>
+                      <span className={`px-2.5 py-1 text-[10px] font-bold rounded ${getNoticeTypeStyle(notice.noticeType)}`}>
+                        {getTypeLabel(notice.noticeType)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <CalendarIcon size={14} />
+                        {new Date(notice.createdAt).toLocaleDateString('ko-KR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Eye size={14} />
+                        조회 {notice.viewCount}
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-sm text-slate-400 line-clamp-2">
+                      {notice.content}
+                    </p>
+                  </div>
+
+                  <ChevronRight
+                    size={20}
+                    className="text-slate-600 transition-transform group-hover:translate-x-1 flex-shrink-0 ml-4"
+                  />
+                </div>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Bell className="mx-auto mb-4 text-slate-700" size={48} />
+              <p className="text-slate-500">등록된 공지사항이 없습니다.</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* ✅ 페이징 UI */}
+      {totalPages > 1 && (
+        <div className="flex flex-col items-center mt-10 gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              disabled={currentPage === 0}
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              이전
+            </button>
+
+            <div className="flex items-center gap-2">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i;
+                } else if (currentPage < 3) {
+                  pageNum = i;
+                } else if (currentPage > totalPages - 4) {
+                  pageNum = totalPages - 5 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setPage(pageNum)}
+                    className={`w-10 h-10 rounded-lg font-semibold transition-all ${currentPage === pageNum
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      }`}
+                  >
+                    {pageNum + 1}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              disabled={currentPage >= totalPages - 1}
+              onClick={() => setPage(p => p + 1)}
+              className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              다음
+            </button>
+          </div>
+
+          <span className="text-slate-500 text-sm">
+            {currentPage + 1} / {totalPages} 페이지 (총 {totalElements}개)
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 공지사항 헬퍼 함수 추가
+function getTypeLabel(type) {
+  const labels = {
+    GENERAL: '일반',
+    MAINTENANCE: '점검',
+    UPDATE: '업데이트',
+    URGENT: '긴급'
+  };
+  return labels[type] || type;
+}
+
+function getNoticeTypeStyle(type) {
+  const styles = {
+    GENERAL: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    MAINTENANCE: 'bg-orange-500/10 text-orange-400 border border-orange-500/20',
+    UPDATE: 'bg-green-500/10 text-green-400 border border-green-500/20',
+    URGENT: 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse'
+  };
+  return styles[type] || styles.GENERAL;
+}
+
+function getNoticeTypeColor(type) {
+  const colors = {
+    GENERAL: 'bg-blue-500/10 text-blue-400',
+    MAINTENANCE: 'bg-orange-500/10 text-orange-400',
+    UPDATE: 'bg-green-500/10 text-green-400',
+    URGENT: 'bg-red-500/10 text-red-400'
+  };
+  return colors[type] || colors.GENERAL;
 }
