@@ -1,4 +1,3 @@
-// ==================== src/components/Layout/Sidebar.jsx ====================
 import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -10,7 +9,8 @@ import {
   Users,
   Bell,
   FileText,
-  MessageSquare
+  MessageSquare,
+  User
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -18,11 +18,13 @@ export default function Sidebar() {
   const location = useLocation()
   const { user } = useAuthStore()
 
+  const isAdminMode = location.pathname.startsWith('/admin')
+  const isAdmin = user?.role === 'ADMIN'
+
   const isActive = (path) => location.pathname === path
 
   const linkClass = (path) => {
-    const base =
-      'flex items-center px-4 py-3 text-sm font-medium transition-all rounded-lg'
+    const base = 'flex items-center px-4 py-3 text-sm font-medium transition-all rounded-lg'
     return isActive(path)
       ? `${base} bg-primary-600/20 text-primary-400`
       : `${base} text-slate-400 hover:bg-white/5 hover:text-slate-200`
@@ -30,14 +32,13 @@ export default function Sidebar() {
 
   const userLinks = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/analysis', icon: FileSearch, label: 'Comment Analysis' },
+    { path: '/analysis', icon: FileSearch, label: 'AI Analysis' },
+    { path: '/comments', icon: MessageSquare, label: 'Comments' },
+    { path: '/blacklist', icon: UserX, label: 'Blacklist' },
+    { path: '/aiassistant', icon: Wand2, label: 'AI Assistant' },
     { path: '/statistics', icon: BarChart3, label: 'Statistics' },
-    { path: '/blacklist', icon: UserX, label: 'Blacklist Manager' },
-
-    // ✅ TemplateManager 연결
-    { path: '/writing', icon: Wand2, label: 'AI Writing Assistant' },
-
-    { path: '/profile', icon: Settings, label: 'Settings' },
+    { path: '/profile', icon: User, label: 'Profile' },
+    { path: '/notices', icon: Bell, label: 'Notices' },
   ]
 
   const adminLinks = [
@@ -48,41 +49,43 @@ export default function Sidebar() {
     { path: '/admin/suggestions', icon: MessageSquare, label: 'Suggestions' },
   ]
 
+  const showUserMenu = !isAdmin || !isAdminMode
+  const showAdminMenu = isAdmin && isAdminMode
+
   return (
     <div className="w-64 bg-slate-950 h-screen border-r border-white/10">
       <div className="py-6 px-3">
-
-        {/* User Menu */}
-        <div className="px-3 mb-3">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            User Menu
-          </h3>
-        </div>
-
-        <nav className="space-y-1">
-          {userLinks.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={linkClass(link.path)}
-            >
-              <link.icon className="h-5 w-5 mr-3" />
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Admin Menu */}
-        {user?.role === 'ADMIN' && (
+        {showAdminMenu && (
           <>
-            <div className="px-3 mt-8 mb-3">
+            <div className="px-3 mb-3">
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Admin Menu
               </h3>
             </div>
-
             <nav className="space-y-1">
               {adminLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={linkClass(link.path)}
+                >
+                  <link.icon className="h-5 w-5 mr-3" />
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </>
+        )}
+
+        {showUserMenu && (
+          <>
+            <div className="px-3 mb-3">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                User Menu
+              </h3>
+            </div>
+            <nav className="space-y-1">
+              {userLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}

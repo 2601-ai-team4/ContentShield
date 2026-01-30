@@ -26,6 +26,7 @@ import Statistics from './Statistics';
 import { blacklistService } from '../../services/blacklistService';
 import { noticeService } from '../../services/noticeService';
 import { useQuery } from '@tanstack/react-query';
+
 // --- [다크 모드 전용 UI 부품] ---
 const Card = ({ children, className = "" }) => (
   <div className={`bg-slate-900 text-slate-100 rounded-xl border border-slate-800 shadow-xl ${className}`}>{children}</div>
@@ -105,6 +106,7 @@ export default function DashboardV2() {
           {activeTab === 'stats' && <StatisticsView />}
           {activeTab === 'profile' && <ProfileSettings />}
           {activeTab === 'notices' && <NoticeListView />}
+          {pathname === '/' && <DashboardView />}
         </div>
       </main>
     </div>
