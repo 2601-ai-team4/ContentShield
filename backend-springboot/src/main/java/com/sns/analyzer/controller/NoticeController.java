@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-// import org.springframework.security.access.prepost.PreAuthorize;  // 임시 주석
-// import org.springframework.security.core.Authentication;  // 임시 주석
+import org.springframework.security.access.prepost.PreAuthorize; // 임시 주석
+import org.springframework.security.core.Authentication; // 임시 주석
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.data.domain.Page;
@@ -64,6 +64,7 @@ public class NoticeController {
      * 공지사항 생성 (테스트용)
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createNotice(@RequestBody NoticeRequest request) {
         Long adminId = 1L; // 임시 하드코딩
 
@@ -80,6 +81,7 @@ public class NoticeController {
      * 공지사항 수정 (테스트용)
      */
     @PutMapping("/{noticeId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateNotice(
             @PathVariable Long noticeId,
             @RequestBody NoticeRequest request) {
@@ -96,6 +98,7 @@ public class NoticeController {
      * 공지사항 삭제 (테스트용)
      */
     @DeleteMapping("/{noticeId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteNotice(@PathVariable Long noticeId) {
         noticeService.deleteNotice(noticeId);
         return ResponseEntity.ok(Map.of("message", "Notice deleted"));
@@ -105,6 +108,7 @@ public class NoticeController {
      * 공지사항 고정/해제 (테스트용)
      */
     @PutMapping("/{noticeId}/pin")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> togglePin(@PathVariable Long noticeId) {
         Notice notice = noticeService.togglePin(noticeId);
         return ResponseEntity.ok(notice);
