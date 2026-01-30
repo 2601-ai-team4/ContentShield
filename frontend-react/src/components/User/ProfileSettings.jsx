@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userService } from '../../services/userService'
-import { 
-  User, Lock, Bell, Save, Camera, AlertCircle, 
+import {
+  User, Lock, Bell, Save, Camera, AlertCircle,
   CheckCircle, Loader2, Mail, Phone, MapPin, Briefcase,
   Shield, Clock, TrendingUp, Smartphone
 } from 'lucide-react'
@@ -58,7 +58,7 @@ export default function ProfileSettings() {
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">설정</h1>
+        <h1 className="text-3xl font-bold text-white">⚙️ 설정</h1>
         <p className="text-slate-400 mt-2">계정 정보 및 환경설정을 관리합니다</p>
       </div>
 
@@ -129,11 +129,10 @@ function TabButton({ active, onClick, icon: Icon, children }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center px-1 py-4 border-b-2 font-medium text-sm transition-colors ${
-        active
-          ? 'border-blue-500 text-blue-400'
-          : 'border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-700'
-      }`}
+      className={`flex items-center px-1 py-4 border-b-2 font-medium text-sm transition-colors ${active
+        ? 'border-blue-500 text-blue-400'
+        : 'border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-700'
+        }`}
     >
       <Icon className="h-5 w-5 mr-2" />
       {children}
@@ -231,7 +230,7 @@ function ProfileTab({ profile, showToast }) {
         </div>
         <div>
           <h3 className="text-sm font-medium text-white">프로필 사진</h3>
-          <p className="text-sm text-slate-500">JPG, PNG 파일 (최대 5MB)</p>
+          <p className="text-sm text-slate-400">JPG, PNG 파일 (최대 5MB)</p>
         </div>
       </div>
 
@@ -244,7 +243,7 @@ function ProfileTab({ profile, showToast }) {
           onChange={(value) => setFormData({ ...formData, fullName: value })}
           placeholder="홍길동"
         />
-        
+
         <FormField
           label="전화번호"
           icon={Phone}
@@ -282,7 +281,7 @@ function ProfileTab({ profile, showToast }) {
           className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:ring-2 focus:ring-blue-500/50 focus:border-transparent resize-none placeholder:text-slate-600"
           placeholder="자기소개를 입력하세요..."
         />
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-slate-400 mt-1">
           {formData.bio.length} / 500 자
         </p>
       </div>
@@ -347,27 +346,27 @@ function PasswordTab({ showToast }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    
+
     const newErrors = {}
-    
+
     if (!passwords.current) {
       newErrors.current = '현재 비밀번호를 입력하세요'
     }
-    
+
     const passwordError = validatePassword(passwords.new)
     if (passwordError) {
       newErrors.new = passwordError
     }
-    
+
     if (passwords.new !== passwords.confirm) {
       newErrors.confirm = '비밀번호가 일치하지 않습니다'
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
     }
-    
+
     changeMutation.mutate({
       currentPassword: passwords.current,
       newPassword: passwords.new,
@@ -440,7 +439,7 @@ function PasswordTab({ showToast }) {
 // ============================================
 // Notifications Tab (간단 버전)
 // ============================================
-function NotificationsTab({ profile, showToast}) {
+function NotificationsTab({ profile, showToast }) {
   const queryClient = useQueryClient()
   const [settings, setSettings] = useState({
     emailNotifications: true,
@@ -554,9 +553,8 @@ function PasswordField({ label, value, onChange, error }) {
         type="password"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-4 py-2 bg-slate-950 border rounded-lg text-slate-200 focus:ring-2 focus:ring-blue-500/50 focus:border-transparent ${
-          error ? 'border-red-500/50' : 'border-slate-800'
-        }`}
+        className={`w-full px-4 py-2 bg-slate-950 border rounded-lg text-slate-200 focus:ring-2 focus:ring-blue-500/50 focus:border-transparent ${error ? 'border-red-500/50' : 'border-slate-800'
+          }`}
         required
       />
       {error && (
@@ -576,21 +574,19 @@ function NotificationToggle({ title, description, icon: Icon, checked, onChange,
         <Icon className="h-5 w-5 text-slate-400 mt-0.5 mr-3 flex-shrink-0" />
         <div>
           <p className="font-medium text-white">{title}</p>
-          <p className="text-sm text-slate-500">{description}</p>
+          <p className="text-sm text-slate-400">{description}</p>
         </div>
       </div>
       <button
         type="button"
         onClick={onChange}
         disabled={loading}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-slate-900 flex-shrink-0 ${
-          checked ? 'bg-blue-600' : 'bg-slate-700'
-        } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-slate-900 flex-shrink-0 ${checked ? 'bg-blue-600' : 'bg-slate-700'
+          } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'
+            }`}
         />
       </button>
     </div>
@@ -606,9 +602,9 @@ function Toast({ message, type, onClose }) {
     success: 'bg-emerald-900/90 border-emerald-500/50 text-emerald-100',
     error: 'bg-red-900/90 border-red-500/50 text-red-100',
   }
-  
+
   const Icon = icons[type]
-  
+
   return (
     <div className="fixed top-4 right-4 z-50 animate-slide-in">
       <div className={`flex items-center p-4 rounded-lg border shadow-xl backdrop-blur-sm ${colors[type]}`}>

@@ -9,7 +9,9 @@ import {
   Wand2,
   Users,
   Bell,
-  FileText
+  FileText,
+  MessageSquare,
+  Lightbulb
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -29,13 +31,12 @@ export default function Sidebar() {
 
   const userLinks = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/analysis', icon: FileSearch, label: 'Comment Analysis' },
+    { path: '/comments', icon: MessageSquare, label: 'Comments' },
+    { path: '/blacklist', icon: UserX, label: 'Blacklist' },
     { path: '/statistics', icon: BarChart3, label: 'Statistics' },
-    { path: '/blacklist', icon: UserX, label: 'Blacklist Manager' },
-
-    // ✅ TemplateManager 연결
-    { path: '/writing', icon: Wand2, label: 'AI Writing Assistant' },
-
+    { path: '/aianalysis', icon: FileSearch, label: 'Comment Analysis' },
+    { path: '/writing', icon: Wand2, label: 'AI Assistant' },
+    { path: '/suggestions', icon: Lightbulb, label: 'Suggestions' },
     { path: '/profile', icon: Settings, label: 'Settings' },
   ]
 
@@ -44,15 +45,16 @@ export default function Sidebar() {
     { path: '/admin/users', icon: Users, label: 'User Management' },
     { path: '/admin/notices', icon: Bell, label: 'Notices' },
     { path: '/admin/logs', icon: FileText, label: 'System Logs' },
+    { path: '/admin/suggestions', icon: MessageSquare, label: 'Suggestions' },
   ]
 
   return (
-    <div className="w-64 bg-slate-950 h-screen border-r border-white/10">
+    <div className="w-64 bg-slate-900 h-screen border-r-2 border-slate-700 shadow-xl shadow-slate-900/50">
       <div className="py-6 px-3">
 
         {/* User Menu */}
         <div className="px-3 mb-3">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <h3 className="text-xs font-semibold text-blue-500 uppercase tracking-wider">
             User Menu
           </h3>
         </div>
@@ -74,7 +76,7 @@ export default function Sidebar() {
         {user?.role === 'ADMIN' && (
           <>
             <div className="px-3 mt-8 mb-3">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-red-500 uppercase tracking-wider">
                 Admin Menu
               </h3>
             </div>

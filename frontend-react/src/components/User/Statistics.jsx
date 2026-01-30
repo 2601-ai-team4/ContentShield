@@ -26,7 +26,7 @@ const Statistics = () => {
   }, []);
 
   if (loading) {
-    return <div className="text-center p-20 text-slate-500 animate-pulse">통계 데이터를 불러오는 중...</div>;
+    return <div className="text-center p-20 text-slate-400 animate-pulse">통계 데이터를 불러오는 중...</div>;
   }
 
   if (!stats) {
@@ -69,8 +69,8 @@ const Statistics = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold text-white mb-2">Statistics Overview</h2>
-        <p className="text-slate-500">전체 댓글 분석 및 사용자 활동 통계입니다. (Real-time DB Data)</p>
+        <h2 className="text-3xl font-bold text-white mb-2">📈 Statistics Overview</h2>
+        <p className="text-slate-400">전체 댓글 분석 및 사용자 활동 통계입니다. (Real-time DB Data)</p>
       </div>
 
       {/* 1. Top Stats Cards */}
