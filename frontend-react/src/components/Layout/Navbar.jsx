@@ -36,8 +36,8 @@ export default function Navbar() {
           {/* 🎯 현재 모드 상태 배지 */}
           {isAdmin && (
             <span className={`px-3 py-1 rounded-full text-xs font-bold ${isAdminMode
-                ? 'bg-red-900/30 text-red-400 border border-red-900/50'
-                : 'bg-blue-900/30 text-blue-400 border border-blue-900/50'
+              ? 'bg-red-900/30 text-red-400 border border-red-900/50'
+              : 'bg-blue-900/30 text-blue-400 border border-blue-900/50'
               }`}>
               {isAdminMode ? (
                 <><Shield className="inline h-3 w-3 mr-1" />Admin Mode</>

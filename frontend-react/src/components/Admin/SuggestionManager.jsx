@@ -77,7 +77,7 @@ export default function SuggestionManager() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">💡 Suggestion Management</h1>
+      <h1 className="text-3xl font-bold text-blue-300 mb-8">💡 Suggestion Management</h1>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 border-b bg-gray-50 text-right text-sm text-gray-500">
