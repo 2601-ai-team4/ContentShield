@@ -50,12 +50,12 @@ export default function Sidebar() {
   ]
 
   return (
-    <div className="w-64 bg-slate-950 h-screen border-r border-white/10">
+    <div className="w-64 bg-slate-900 h-screen border-r-2 border-slate-700 shadow-xl shadow-slate-900/50">
       <div className="py-6 px-3">
 
         {/* User Menu */}
         <div className="px-3 mb-3">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <h3 className="text-xs font-semibold text-blue-500 uppercase tracking-wider">
             User Menu
           </h3>
         </div>
@@ -77,7 +77,7 @@ export default function Sidebar() {
         {user?.role === 'ADMIN' && (
           <>
             <div className="px-3 mt-8 mb-3">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-red-500 uppercase tracking-wider">
                 Admin Menu
               </h3>
             </div>

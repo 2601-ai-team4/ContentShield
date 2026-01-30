@@ -192,8 +192,8 @@ function DashboardView() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-bold text-white">System Overview</h1>
-        <p className="text-slate-500">실시간 보안 및 댓글 분석 현황입니다.</p>
+        <h1 className="text-3xl font-bold text-white">🖥️ System Overview</h1>
+        <p className="text-slate-400">실시간 보안 및 댓글 분석 현황입니다.</p>
       </header>
 
       {/* ✅ 공지사항 카드 추가 (통계 카드 위에) */}
@@ -299,10 +299,10 @@ function DashboardView() {
                 <div className={`h-2 w-2 rounded-full mt-2 ${note.isMalicious ? 'bg-red-500' : 'bg-emerald-500'}`} />
                 <div>
                   <p className="text-sm font-medium">{note.isMalicious ? '악성' : '클린'} 댓글 감지 ({note.category})</p>
-                  <p className="text-xs text-slate-500">{new Date(note.analyzedAt).toLocaleString()}</p>
+                  <p className="text-xs text-slate-400">{new Date(note.analyzedAt).toLocaleString()}</p>
                 </div>
               </div>
-            )) : <p className="text-center text-slate-500 text-sm py-10">알림 내역이 없습니다.</p>}
+            )) : <p className="text-center text-slate-400 text-sm py-10">알림 내역이 없습니다.</p>}
           </CardContent>
         </Card>
       </div>
@@ -320,8 +320,8 @@ function DashboardView() {
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-bold text-white">Blacklist Management</h2>
-          <p className="text-slate-500 text-sm">차단된 사용자 목록을 관리합니다.</p>
+          <h2 className="text-2xl font-bold text-white">🚫 Blacklist Management</h2>
+          <p className="text-slate-400 text-sm">차단된 사용자 목록을 관리합니다.</p>
         </div>
         <Button className="gap-2"><Plus size={16} /> Add User</Button>
       </div>
@@ -340,7 +340,7 @@ function DashboardView() {
               <tr key={i.id} className="hover:bg-slate-800/30 transition-colors group">
                 <td className="p-4">
                   <div className="font-bold text-slate-200">{i.name}</div>
-                  <div className="text-xs text-slate-500 font-mono">{i.identifier}</div>
+                  <div className="text-xs text-slate-400 font-mono">{i.identifier}</div>
                 </td>
                 <td className="p-4">
                   <span className="px-2 py-1 rounded bg-red-900/20 text-red-400 text-xs font-bold border border-red-900/30">{i.count} Hits</span>
@@ -366,8 +366,8 @@ function BlacklistView() {
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-bold text-white">Blacklist Management</h2>
-          <p className="text-slate-500 text-sm">차단된 사용자 및 단어를 관리합니다.</p>
+          <h2 className="text-2xl font-bold text-white">🚫 Blacklist Management</h2>
+          <p className="text-slate-400 text-sm">차단된 사용자 및 단어를 관리합니다.</p>
         </div>
       </div>
 
@@ -540,7 +540,7 @@ function BlockedUsersTab() {
             <h3 className="text-lg font-bold text-white">블랙리스트 추가</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-slate-500 mb-1">사용자 이름 *</label>
+                <label className="block text-xs text-slate-400 mb-1">사용자 이름 *</label>
                 <Input
                   value={newAuthorName}
                   onChange={(e) => setNewAuthorName(e.target.value)}
@@ -548,7 +548,7 @@ function BlockedUsersTab() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">사용자 ID *</label>
+                <label className="block text-xs text-slate-400 mb-1">사용자 ID *</label>
                 <Input
                   value={newAuthorId}
                   onChange={(e) => setNewAuthorId(e.target.value)}
@@ -557,7 +557,7 @@ function BlockedUsersTab() {
               </div>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">차단 사유</label>
+              <label className="block text-xs text-slate-400 mb-1">차단 사유</label>
               <Input
                 value={newReason}
                 onChange={(e) => setNewReason(e.target.value)}
@@ -565,7 +565,7 @@ function BlockedUsersTab() {
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">문제 댓글 내용</label>
+              <label className="block text-xs text-slate-400 mb-1">문제 댓글 내용</label>
               <Textarea
                 value={newCommentText}
                 onChange={(e) => setNewCommentText(e.target.value)}
@@ -610,7 +610,7 @@ function BlockedUsersTab() {
           </div>
 
           {list.length === 0 ? (
-            <div className="text-center p-10 text-slate-500">
+            <div className="text-center p-10 text-slate-400">
               등록된 블랙리스트가 없습니다.
             </div>
           ) : (
@@ -630,7 +630,7 @@ function BlockedUsersTab() {
                   <tr key={item.blacklistId} className="hover:bg-slate-800/30 transition-colors group">
                     <td className="p-4">
                       <div className="font-bold text-slate-200">{item.blockedAuthorName}</div>
-                      <div className="text-xs text-slate-500 font-mono">{item.blockedAuthorIdentifier}</div>
+                      <div className="text-xs text-slate-400 font-mono">{item.blockedAuthorIdentifier}</div>
                     </td>
                     <td className="p-4">
                       <span className="px-2 py-1 rounded bg-red-900/20 text-red-400 text-xs font-bold border border-red-900/30">
@@ -650,7 +650,7 @@ function BlockedUsersTab() {
                       )}
                     </td>
                     {/* 🆕 등록일시 컬럼 */}
-                    <td className="p-4 text-right text-xs text-slate-500">
+                    <td className="p-4 text-right text-xs text-slate-400">
                       {formatDateTime(item.createdAt)}
                     </td>
                     {/* 🆕 해제 버튼 */}
@@ -777,7 +777,7 @@ function BlockedWordsTab() {
         <CardContent className="p-4">
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs text-slate-500 mb-1">차단 단어</label>
+              <label className="block text-xs text-slate-400 mb-1">차단 단어</label>
               <Input
                 value={newWord}
                 onChange={(e) => setNewWord(e.target.value)}
@@ -786,7 +786,7 @@ function BlockedWordsTab() {
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">카테고리</label>
+              <label className="block text-xs text-slate-400 mb-1">카테고리</label>
               <select
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
@@ -798,7 +798,7 @@ function BlockedWordsTab() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">심각도</label>
+              <label className="block text-xs text-slate-400 mb-1">심각도</label>
               <select
                 value={newSeverity}
                 onChange={(e) => setNewSeverity(e.target.value)}
@@ -820,7 +820,7 @@ function BlockedWordsTab() {
       <Card>
         <CardContent className="p-0 overflow-hidden">
           {words.length === 0 ? (
-            <div className="text-center p-10 text-slate-500">
+            <div className="text-center p-10 text-slate-400">
               등록된 차단 단어가 없습니다.
             </div>
           ) : (
@@ -855,7 +855,7 @@ function BlockedWordsTab() {
                         onClick={() => handleToggleWord(word.wordId)}
                         className={`px-2 py-1 rounded text-xs ${word.isActive
                           ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30'
-                          : 'bg-slate-800 text-slate-500 border border-slate-700'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
                           }`}
                       >
                         {word.isActive ? '활성' : '비활성'}
@@ -889,7 +889,7 @@ function BlockedWordsTab() {
 //       <div className="text-center space-y-2">
 //         <div className="inline-flex p-3 rounded-2xl bg-blue-600/10 text-blue-500 mb-2"><Search size={32} /></div>
 //         <h2 className="text-3xl font-black text-white">AI Content Analysis</h2>
-//         <p className="text-slate-500">문장의 맥락을 분석하여 유해성을 판별합니다.</p>
+//         <p className="text-slate-400">문장의 맥락을 분석하여 유해성을 판별합니다.</p>
 //       </div>
 //       <Card className="border-blue-900/30 bg-slate-900/80 backdrop-blur">
 //         <CardContent className="p-8 space-y-6">
@@ -939,7 +939,7 @@ function CommentAnalysisView() {
           <Search size={32} />
         </div>
         <h2 className="text-3xl font-black text-white">AI Content Analysis</h2>
-        <p className="text-slate-500">문장의 맥락을 분석하여 유해성을 판별합니다.</p>
+        <p className="text-slate-400">문장의 맥락을 분석하여 유해성을 판별합니다.</p>
       </div>
 
       <Card className="border-blue-900/30 bg-slate-900/80 backdrop-blur">
@@ -992,7 +992,7 @@ function CommentAnalysisView() {
           <CardContent className="space-y-6">
             {/* Category */}
             <div className="flex items-center gap-2">
-              <span className="text-slate-500">카테고리:</span>
+              <span className="text-slate-400">카테고리:</span>
               <span className="px-3 py-1 rounded-full bg-blue-600/20 text-blue-400 text-sm font-bold">
                 {result.category}
               </span>
@@ -1109,7 +1109,7 @@ function TemplateView() {
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Edit size={14} /><Trash2 size={14} className="text-red-500" /></div>
               </div>
               <h3 className="text-lg font-bold text-white mb-2">{t.name}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed">{t.content}</p>
+              <p className="text-sm text-slate-400 leading-relaxed">{t.content}</p>
             </CardContent>
           </Card>
         ))}
@@ -1124,7 +1124,7 @@ function StatCard({ title, value, icon: Icon, color }) {
     <Card className="border-slate-800/50 hover:bg-slate-800/50 transition-colors">
       <CardContent className="p-6 flex items-center justify-between">
         <div className="space-y-1">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</p>
           <p className="text-2xl font-black text-white">{value}</p>
         </div>
         <div className={`p-3 rounded-xl bg-slate-950 border border-slate-800 ${color} shadow-inner`}>
@@ -1213,7 +1213,7 @@ function ProfileView() {
     <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div>
         <h2 className="text-2xl font-bold text-white">Profile Settings</h2>
-        <p className="text-slate-500 text-sm">계정 정보를 확인하고 관리합니다.</p>
+        <p className="text-slate-400 text-sm">계정 정보를 확인하고 관리합니다.</p>
       </div>
 
       {/* 계정 정보 카드 */}
@@ -1319,7 +1319,7 @@ function ProfileView() {
 function InfoItem({ label, value }) {
   return (
     <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
+      <p className="text-xs text-slate-400 mb-1">{label}</p>
       <p className="text-slate-200 font-medium">{value || '-'}</p>
     </div>
   );
@@ -1647,7 +1647,7 @@ function CommentManagementView() {
             </div>
             <h2 className="text-2xl font-bold text-white">YouTube Insight</h2>
           </div>
-          <p className="text-slate-500 text-sm">영상 URL과 기간을 설정하여 악성 댓글을 정밀 탐색합니다.</p>
+          <p className="text-slate-400 text-sm">영상 URL과 기간을 설정하여 악성 댓글을 정밀 탐색합니다.</p>
         </div>
       </div>
 
@@ -1667,7 +1667,7 @@ function CommentManagementView() {
                 <span className="text-sm font-black text-white tracking-[0.2em] uppercase animate-pulse">
                   {loadingStatus || 'Processing...'}
                 </span>
-                <span className="text-xs text-slate-500 font-medium">분석이 끝날 때까지 페이지를 유지해주세요.</span>
+                <span className="text-xs text-slate-400 font-medium">분석이 끝날 때까지 페이지를 유지해주세요.</span>
               </div>
             </div>
           </div>
@@ -1681,7 +1681,7 @@ function CommentManagementView() {
                 <LinkIcon size={12} /> YOUTUBE VIDEO URL
               </label>
               <div className="relative group">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors">
                   <Globe size={16} />
                 </div>
                 <input
@@ -1733,7 +1733,7 @@ function CommentManagementView() {
                 disabled={analyzing || !url}
                 className={`w-full h-11 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all 
                   ${analyzing
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/40 active:scale-[0.98]'}`}
               >
                 {analyzing ? (
@@ -1765,7 +1765,7 @@ function CommentManagementView() {
         <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
           <div className="space-y-1">
             <CardTitle className="text-lg">Analysis History ({comments.length})</CardTitle>
-            <p className="text-xs text-slate-500">수집된 데이터 중 현재 필터 조건에 맞는 목록입니다.</p>
+            <p className="text-xs text-slate-400">수집된 데이터 중 현재 필터 조건에 맞는 목록입니다.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 bg-slate-950/50 p-1 rounded-lg border border-slate-800">
@@ -1778,7 +1778,7 @@ function CommentManagementView() {
                   }}
                   className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all uppercase ${filterStatus === status
                     ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-slate-400 hover:text-slate-300'
                     }`}
                 >
                   {status}
@@ -1828,11 +1828,11 @@ function CommentManagementView() {
                       onChange={toggleSelectAll}
                     />
                   </th>
-                  <th className="p-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-tighter w-[15%]">Author</th>
-                  <th className="p-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-tighter w-[50%]">Comment Content</th>
-                  <th className="p-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-tighter w-[15%] text-center">Verdict</th>
-                  <th className="p-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-tighter w-[10%] text-center">Date</th>
-                  <th className="p-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-tighter w-[10%] text-right">Settings</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[15%]">Author</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[50%]">Comment Content</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[15%] text-center">Verdict</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[10%] text-center">Date</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[10%] text-right">Settings</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
@@ -1890,7 +1890,7 @@ function CommentManagementView() {
                       )}
                     </td>
                     <td className="p-4 align-top text-center">
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-[11px] text-slate-400 font-medium">
                         {new Date(comment.commentedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
                       </div>
                     </td>
@@ -1902,7 +1902,7 @@ function CommentManagementView() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleAddToBlacklist(comment)}
-                            className="text-slate-500 hover:text-orange-400 opacity-0 group-hover:opacity-100"
+                            className="text-slate-400 hover:text-orange-400 opacity-0 group-hover:opacity-100"
                             title="블랙리스트 추가"
                           >
                             <UserX size={16} />
@@ -1948,7 +1948,7 @@ function CommentManagementView() {
           </div>
           <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 Showing <span className="font-bold text-slate-200">{currentPage * pageSize + 1}</span> to{' '}
                 <span className="font-bold text-slate-200">
                   {Math.min((currentPage + 1) * pageSize, totalElements)}
@@ -1961,7 +1961,7 @@ function CommentManagementView() {
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
                   disabled={currentPage === 0}
-                  className="relative inline-flex items-center rounded-l-lg px-2 py-2 text-slate-500 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                  className="relative inline-flex items-center rounded-l-lg px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
                 >
                   <span className="sr-only">Previous</span>
                   <RotateCcw size={16} className="rotate-180" />
@@ -1991,7 +1991,7 @@ function CommentManagementView() {
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
                   disabled={currentPage === totalPages - 1}
-                  className="relative inline-flex items-center rounded-r-lg px-2 py-2 text-slate-500 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                  className="relative inline-flex items-center rounded-r-lg px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
                 >
                   <span className="sr-only">Next</span>
                   <RotateCcw size={16} />

@@ -32,7 +32,10 @@ import UserManagement from './components/Admin/UserManagement'
 import NoticeManager from './components/Admin/NoticeManager'
 import LogViewer from './components/Admin/LogViewer'
 import SuggestionManager from './components/Admin/SuggestionManager'
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/sieun
 function App() {
   const { user } = useAuthStore()
 
@@ -98,6 +101,7 @@ function App() {
                 <UserDashboard />
               </PrivateRoute>
             } />
+<<<<<<< HEAD
             <Route path="/notices" element={
               <PrivateRoute>
                 <UserDashboard />
@@ -108,6 +112,8 @@ function App() {
                 <UserDashboard />
               </PrivateRoute>
             } />
+=======
+>>>>>>> origin/sieun
 
             {/* 🧠 Template Manager (독립 페이지) */}
             <Route path="/writing" element={

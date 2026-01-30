@@ -289,8 +289,12 @@ function NoticeModal({ notice, onClose, onSubmit }) {
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+<<<<<<< HEAD
               className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               placeholder="공지사항 제목을 입력하세요"
+=======
+              className="w-full px-3 py-2 border rounded"
+>>>>>>> origin/sieun
             />
           </div>
 
@@ -300,9 +304,14 @@ function NoticeModal({ notice, onClose, onSubmit }) {
               required
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+<<<<<<< HEAD
               rows={8}
               className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
               placeholder="공지사항 내용을 입력하세요"
+=======
+              rows={6}
+              className="w-full px-3 py-2 border rounded"
+>>>>>>> origin/sieun
             />
           </div>
 
@@ -311,7 +320,11 @@ function NoticeModal({ notice, onClose, onSubmit }) {
             <select
               value={formData.noticeType}
               onChange={(e) => setFormData({ ...formData, noticeType: e.target.value })}
+<<<<<<< HEAD
               className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+=======
+              className="w-full px-3 py-2 border rounded"
+>>>>>>> origin/sieun
             >
               <option value="GENERAL">일반 공지 (General)</option>
               <option value="MAINTENANCE">서버 점검 (Maintenance)</option>

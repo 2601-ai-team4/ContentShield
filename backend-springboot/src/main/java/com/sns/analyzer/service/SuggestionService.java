@@ -3,6 +3,8 @@ package com.sns.analyzer.service;
 
 import com.sns.analyzer.entity.Suggestion;
 import com.sns.analyzer.repository.SuggestionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,18 +29,18 @@ public class SuggestionService {
     }
     
     @Transactional(readOnly = true)
-    public List<Suggestion> getUserSuggestions(Long userId) {
-        return suggestionRepository.findByUserId(userId);
+    public Page<Suggestion> getUserSuggestions(Long userId, Pageable pageable) {
+        return suggestionRepository.findByUserId(userId, pageable);
     }
     
     @Transactional(readOnly = true)
-    public List<Suggestion> getAllSuggestions() {
-        return suggestionRepository.findAll();
+    public Page<Suggestion> getAllSuggestions(Pageable pageable) {
+        return suggestionRepository.findAll(pageable);
     }
     
     @Transactional(readOnly = true)
-    public List<Suggestion> getSuggestionsByStatus(Suggestion.SuggestionStatus status) {
-        return suggestionRepository.findByStatus(status);
+    public Page<Suggestion> getSuggestionsByStatus(Suggestion.SuggestionStatus status, Pageable pageable) {
+        return suggestionRepository.findByStatus(status, pageable);
     }
     
     public Suggestion updateStatus(Long suggestionId, String status) {
@@ -49,14 +51,19 @@ public class SuggestionService {
         return suggestionRepository.save(suggestion);
     }
     
-    public Suggestion respondToSuggestion(Long suggestionId, Long adminId, String response) {
+    public Suggestion respondToSuggestion(Long suggestionId, Long adminId, String response, String status) {
         Suggestion suggestion = suggestionRepository.findById(suggestionId)
             .orElseThrow(() -> new IllegalArgumentException("Suggestion not found"));
         
         suggestion.setAdminResponse(response);
-        suggestion.setRespondedBy(adminId);
+        suggestion.setAdminId(adminId);
         suggestion.setRespondedAt(LocalDateTime.now());
-        suggestion.setStatus(Suggestion.SuggestionStatus.COMPLETED);
+        
+        if (status != null && !status.isEmpty()) {
+            suggestion.setStatus(Suggestion.SuggestionStatus.valueOf(status));
+        } else {
+            suggestion.setStatus(Suggestion.SuggestionStatus.COMPLETED);
+        }
         
         return suggestionRepository.save(suggestion);
     }
