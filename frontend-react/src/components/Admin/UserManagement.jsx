@@ -66,6 +66,17 @@ export default function UserManagement() {
     return pageNumbers
   }
 
+  // ==================== #장소영~여기까지: 정지/신고 사유 표시 문자열 생성 ====================
+  const getReasonText = (user) => {
+    // 정지 사유 우선, 없으면 신고 사유
+    const suspendReason = user?.suspensionReason?.trim()
+    const flagReason = user?.flagReason?.trim()
+    if (suspendReason) return suspendReason
+    if (flagReason) return flagReason
+    return '-'
+  }
+  // ==================== #여기까지 ====================
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-white mb-8">User Management</h1>
@@ -101,15 +112,23 @@ export default function UserManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase">
                 Created
               </th>
+
+              {/* ==================== #장소영~여기까지: 사유 컬럼 추가(정지/신고 사유 표시) ==================== */}
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase">
+                Reason
+              </th>
+              {/* ==================== #여기까지 ==================== */}
+
               <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase">
                 Actions
               </th>
             </tr>
           </thead>
+
           <tbody className="bg-slate-900 divide-y divide-slate-800">
             {isLoading ? (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-slate-400">Loading...</td>
+                <td colSpan="6" className="px-6 py-4 text-center text-slate-400">Loading...</td>
               </tr>
             ) : currentUsers?.map((user) => (
               <tr key={user.userId} className="hover:bg-slate-800 transition-colors">
@@ -119,19 +138,25 @@ export default function UserManagement() {
                     <p className="text-sm text-slate-400">{user.email}</p>
                   </div>
                 </td>
+
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 text-xs rounded ${
-                    user.role === 'ADMIN' ? 'bg-purple-900/30 text-purple-400 border border-purple-900/50' : 'bg-slate-800 text-slate-300 border border-slate-700'
+                    user.role === 'ADMIN'
+                      ? 'bg-purple-900/30 text-purple-400 border border-purple-900/50'
+                      : 'bg-slate-800 text-slate-300 border border-slate-700'
                   }`}>
                     {user.role}
                   </span>
                 </td>
+
                 <td className="px-6 py-4">
                   <div className="flex flex-col space-y-1">
                     <span className={`px-2 py-1 text-xs rounded w-fit ${
-                      user.status === 'ACTIVE' ? 'bg-green-900/30 text-green-400 border border-green-900/50' :
-                      user.status === 'SUSPENDED' ? 'bg-red-900/30 text-red-400 border border-red-900/50' :
-                      'bg-slate-800 text-slate-300 border border-slate-700'
+                      user.status === 'ACTIVE'
+                        ? 'bg-green-900/30 text-green-400 border border-green-900/50'
+                        : user.status === 'SUSPENDED'
+                        ? 'bg-red-900/30 text-red-400 border border-red-900/50'
+                        : 'bg-slate-800 text-slate-300 border border-slate-700'
                     }`}>
                       {user.status}
                     </span>
@@ -142,9 +167,19 @@ export default function UserManagement() {
                     )}
                   </div>
                 </td>
+
                 <td className="px-6 py-4 text-sm text-slate-400">
-                  {new Date(user.createdAt).toLocaleDateString()}
+                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
                 </td>
+
+                {/* ==================== #장소영~여기까지: 정지/신고 사유 표시 칸(빨간 동그라미 위치) ==================== */}
+                <td className="px-6 py-4 text-sm text-slate-300 max-w-[320px]">
+                  <span className="block truncate" title={getReasonText(user)}>
+                    {getReasonText(user)}
+                  </span>
+                </td>
+                {/* ==================== #여기까지 ==================== */}
+
                 <td className="px-6 py-4 text-right space-x-2">
                   <button
                     onClick={() => {
@@ -158,6 +193,7 @@ export default function UserManagement() {
                   >
                     <UserX className="h-5 w-5" />
                   </button>
+
                   <button
                     onClick={() => {
                       const reason = prompt('Reason for flag:')
@@ -191,7 +227,7 @@ export default function UserManagement() {
             >
               Previous
             </button>
-            
+
             {getPageNumbers().map(number => (
               <button
                 key={number}
@@ -205,7 +241,7 @@ export default function UserManagement() {
                 {number}
               </button>
             ))}
-            
+
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}

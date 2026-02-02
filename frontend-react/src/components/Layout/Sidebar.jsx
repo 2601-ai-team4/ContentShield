@@ -47,7 +47,6 @@ export default function Sidebar() {
     { path: '/admin/notices', icon: Bell, label: 'Notices' },
     { path: '/admin/logs', icon: FileText, label: 'System Logs' },
     { path: '/admin/suggestions', icon: MessageSquare, label: 'Suggestions' },
-    { path: '/admin/suggestions', icon: MessageSquare, label: 'Suggestions' },
   ]
 
   const showUserMenu = !isAdmin || !isAdminMode

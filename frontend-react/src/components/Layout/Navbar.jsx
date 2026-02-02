@@ -1,22 +1,29 @@
+<<<<<<< HEAD
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Shield, User, Power, ArrowLeftRight } from 'lucide-react';
+=======
+// Navbar.jsx
+import { useAuthStore } from '../../stores/authStore'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Shield, User, Power, ArrowLeftRight } from 'lucide-react'
+>>>>>>> 172a1b9 (chore: admin integration fixes (backend+frontend))
 
 export default function Navbar() {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { user, logout } = useAuthStore()
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  if (!user) return null;
+  if (!user) return null
 
-  const isAdminMode = location.pathname.startsWith('/admin');
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdminMode = location.pathname.startsWith('/admin')
+  const isAdmin = user?.role === 'ADMIN'
 
   const toggleMode = () => {
     if (isAdminMode) {
-      navigate('/dashboard');
+      navigate('/dashboard')
     } else {
-      navigate('/admin/dashboard');
+      navigate('/admin/dashboard')
     }
   };
 
@@ -33,15 +40,23 @@ export default function Navbar() {
 
           {/* 🎯 현재 모드 상태 배지 */}
           {isAdmin && (
-            <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
-              isAdminMode
-                ? 'bg-red-900/30 text-red-400 border border-red-900/50'
-                : 'bg-blue-900/30 text-blue-400 border border-blue-900/50'
-            }`}>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold ${
+                isAdminMode
+                  ? 'bg-red-900/30 text-red-400 border border-red-900/50'
+                  : 'bg-blue-900/30 text-blue-400 border border-blue-900/50'
+              }`}
+            >
               {isAdminMode ? (
-                <><Shield className="h-3 w-3" />Admin Mode</>
+                <>
+                  <Shield className="inline h-3 w-3 mr-1" />
+                  Admin Mode
+                </>
               ) : (
-                <><User className="h-3 w-3" />User Mode</>
+                <>
+                  <User className="inline h-3 w-3 mr-1" />
+                  User Mode
+                </>
               )}
             </span>
           )}
@@ -59,7 +74,7 @@ export default function Navbar() {
             </button>
           )}
 
-          <div className="h-6 w-px bg-slate-700 mx-2"></div>
+          <div className="h-6 w-px bg-slate-700 mx-2" />
 
           <button
             onClick={handleLogout}
@@ -71,5 +86,5 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
-  );
+  )
 }

@@ -5,9 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-// #장소영~여기까지: 비밀번호 해시 JSON 노출 방지
 import com.fasterxml.jackson.annotation.JsonIgnore;
-// #여기까지
 
 @Entity
 @Table(name = "users")
@@ -20,52 +18,65 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id") // #장소영~여기까지: snake_case 컬럼명 확정
+    // #여기까지
     private Long userId;
 
-    @Column(unique = true, nullable = false, length = 100)
+    @Column(name = "email", unique = true, nullable = false, length = 100)
     private String email;
 
-    // #장소영~여기까지: 응답(JSON)에서 passwordHash 제외
     @JsonIgnore
+    @Column(name = "password_hash", nullable = false) // #장소영~여기까지: 컬럼명 명시
     // #여기까지
-    @Column(nullable = false)
     private String passwordHash;
 
-    @Column(length = 50, nullable = false)
+    @Column(name = "username", length = 50, nullable = false)
     private String username;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(name = "role", nullable = false, length = 20)
     @Builder.Default
     private UserRole role = UserRole.USER;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
-    @Column(nullable = false)
+    @Column(name = "is_suspended", nullable = false) // #장소영~여기까지
+    // #여기까지
     @Builder.Default
     private Boolean isSuspended = false;
 
+    @Column(name = "suspended_until") // #장소영~여기까지
+    // #여기까지
     private LocalDateTime suspendedUntil;
 
-    @Column(nullable = false)
+    @Column(name = "is_flagged", nullable = false) // #장소영~여기까지
+    // #여기까지
     @Builder.Default
     private Boolean isFlagged = false;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "flag_reason", columnDefinition = "TEXT") // #장소영~여기까지
+    // #여기까지
     private String flagReason;
 
-    @Column(nullable = false)
+    // ✅ 네이티브쿼리에서 DATE(u.created_at) 쓰므로 매핑 고정
+    @Column(name = "created_at", nullable = false) // #장소영~여기까지
+    // #여기까지
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "updated_at") // #장소영~여기까지
+    // #여기까지
     private LocalDateTime updatedAt;
 
+    @Column(name = "last_login_at") // #장소영~여기까지
+    // #여기까지
     private LocalDateTime lastLoginAt;
 
-    // 추가: 정지 해제 사유
+    @Column(name = "suspension_reason") // #장소영~여기까지
+    // #여기까지
     private String suspensionReason;
 
     @PreUpdate
@@ -73,27 +84,6 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // ===== 비즈니스 메소드 추가 =====
-
-    /**
-     * 정지 사유 설정
-     */
-    public void setSuspensionReason(String reason) {
-        this.suspensionReason = reason;
-    }
-
-    /**
-     * 정지 사유 조회
-     */
-    public String getSuspensionReason() {
-        return this.suspensionReason;
-    }
-
-    public enum UserRole {
-        ADMIN, USER
-    }
-
-    public enum UserStatus {
-        ACTIVE, INACTIVE, SUSPENDED, DELETED
-    }
+    public enum UserRole { ADMIN, USER }
+    public enum UserStatus { ACTIVE, INACTIVE, SUSPENDED, DELETED }
 }

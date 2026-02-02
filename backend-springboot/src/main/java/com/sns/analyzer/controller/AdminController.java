@@ -1,32 +1,31 @@
+// [File: AdminController.java]
 package com.sns.analyzer.controller;
 
-import com.sns.analyzer.entity.*;
-import com.sns.analyzer.service.*;
+import com.sns.analyzer.entity.AdminLog;
+import com.sns.analyzer.entity.User;
+import com.sns.analyzer.entity.UserActivityLog;
+import com.sns.analyzer.service.AdminService;
+import com.sns.analyzer.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime; // #장소영~여기까지: DTO 필드 타입용
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors; // #장소영~여기까지: DTO 변환용
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-// #장소영~여기까지: allowCredentials=true 환경에서 @CrossOrigin(origins="*")는 Spring이 예외 던져서 500 발생
-// → 컨트롤러 CORS는 제거하고, SecurityConfig의 CORS 설정만 사용하도록 통일
-// @CrossOrigin(origins = "*")
-// #여기까지
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
     private final AdminService adminService;
     private final UserService userService;
 
-    // ==================== #장소영~여기까지: AdminUserDto 추가 (User 엔티티 직접 반환으로 인한 500 방지) ====================
     static class AdminUserDto {
         public Long userId;
         public String email;
@@ -60,37 +59,48 @@ public class AdminController {
             return dto;
         }
     }
+
+    // ==================== #장소영~여기까지: AdminLogDto 추가(엔티티 직접 반환 위험 방지) ====================
+    static class AdminLogDto {
+        public Long logId;
+        public Long adminId;
+        public AdminLog.ActionType actionType;
+        public String targetType;
+        public Long targetId;
+        public String description;
+        public String ipAddress;
+        public LocalDateTime createdAt;
+
+        public static AdminLogDto from(AdminLog l) {
+            AdminLogDto dto = new AdminLogDto();
+            dto.logId = l.getLogId();
+            dto.adminId = l.getAdminId();
+            dto.actionType = l.getActionType();
+            dto.targetType = l.getTargetType();
+            dto.targetId = l.getTargetId();
+            dto.description = l.getDescription();
+            dto.ipAddress = l.getIpAddress();
+            dto.createdAt = l.getCreatedAt();
+            return dto;
+        }
+    }
     // ==================== #여기까지 ====================
 
-    /**
-     * 전체 사용자 목록
-     */
     @GetMapping("/users")
     public ResponseEntity<List<AdminUserDto>> getAllUsers() {
-        // #장소영~여기까지: User 엔티티 직접 반환 -> DTO로 변환해서 반환 (500 방지 + 비밀번호 해시 노출 방지)
         List<AdminUserDto> result = userService.getAllUsers().stream()
                 .map(AdminUserDto::from)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
-        // #여기까지
     }
 
-    /**
-     * 사용자 상세 정보
-     */
     @GetMapping("/users/{userId}")
     public ResponseEntity<?> getUserDetail(@PathVariable Long userId) {
         User user = userService.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        // #장소영~여기까지: 상세도 엔티티 대신 DTO로 반환
         return ResponseEntity.ok(AdminUserDto.from(user));
-        // #여기까지
     }
 
-    /**
-     * 사용자 정지
-     */
     @PutMapping("/users/{userId}/suspend")
     public ResponseEntity<?> suspendUser(
             @PathVariable Long userId,
@@ -98,30 +108,17 @@ public class AdminController {
             Authentication authentication
     ) {
         Long adminId = getAdminId(authentication);
-
         adminService.suspendUser(userId, adminId, request.getReason(), request.getDays());
-
         return ResponseEntity.ok(Map.of("message", "User suspended"));
     }
 
-    /**
-     * 사용자 정지 해제
-     */
     @PutMapping("/users/{userId}/unsuspend")
-    public ResponseEntity<?> unsuspendUser(
-            @PathVariable Long userId,
-            Authentication authentication
-    ) {
+    public ResponseEntity<?> unsuspendUser(@PathVariable Long userId, Authentication authentication) {
         Long adminId = getAdminId(authentication);
-
         adminService.unsuspendUser(userId, adminId);
-
         return ResponseEntity.ok(Map.of("message", "User unsuspended"));
     }
 
-    /**
-     * 사용자 플래그
-     */
     @PutMapping("/users/{userId}/flag")
     public ResponseEntity<?> flagUser(
             @PathVariable Long userId,
@@ -129,71 +126,46 @@ public class AdminController {
             Authentication authentication
     ) {
         Long adminId = getAdminId(authentication);
-
         adminService.flagUser(userId, adminId, body.get("reason"));
-
         return ResponseEntity.ok(Map.of("message", "User flagged"));
     }
 
-    /**
-     * 사용자 플래그 해제
-     */
     @PutMapping("/users/{userId}/unflag")
-    public ResponseEntity<?> unflagUser(
-            @PathVariable Long userId,
-            Authentication authentication
-    ) {
+    public ResponseEntity<?> unflagUser(@PathVariable Long userId, Authentication authentication) {
         Long adminId = getAdminId(authentication);
-
         adminService.unflagUser(userId, adminId);
-
         return ResponseEntity.ok(Map.of("message", "User unflagged"));
     }
 
-    /**
-     * 관리자 로그 조회
-     */
+    // ==================== #장소영~여기까지: logs/admin도 DTO로 반환(프론트에서 안전하게 렌더) ====================
     @GetMapping("/logs/admin")
-    public ResponseEntity<List<AdminLog>> getAdminLogs(
-            @RequestParam(required = false) Long adminId
-    ) {
-        return ResponseEntity.ok(adminService.getAdminLogs(adminId));
+    public ResponseEntity<List<AdminLogDto>> getAdminLogs(@RequestParam(required = false) Long adminId) {
+        List<AdminLogDto> result = adminService.getAdminLogs(adminId).stream()
+                .map(AdminLogDto::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
+    // ==================== #여기까지 ====================
 
-    /**
-     * 사용자 활동 로그 조회
-     */
     @GetMapping("/logs/activity")
-    public ResponseEntity<List<UserActivityLog>> getUserActivityLogs(
-            @RequestParam(required = false) Long userId
-    ) {
+    public ResponseEntity<List<UserActivityLog>> getUserActivityLogs(@RequestParam(required = false) Long userId) {
         return ResponseEntity.ok(adminService.getUserActivityLogs(userId));
     }
 
-    /**
-     * 플래그된 사용자 목록
-     */
     @GetMapping("/users/flagged")
     public ResponseEntity<List<AdminUserDto>> getFlaggedUsers() {
-        // #장소영~여기까지: 엔티티 반환 -> DTO 반환
         List<AdminUserDto> result = adminService.getFlaggedUsers().stream()
                 .map(AdminUserDto::from)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
-        // #여기까지
     }
 
-    /**
-     * 정지된 사용자 목록
-     */
     @GetMapping("/users/suspended")
     public ResponseEntity<List<AdminUserDto>> getSuspendedUsers() {
-        // #장소영~여기까지: 엔티티 반환 -> DTO 반환
         List<AdminUserDto> result = adminService.getSuspendedUsers().stream()
                 .map(AdminUserDto::from)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
-        // #여기까지
     }
 
     private Long getAdminId(Authentication authentication) {
@@ -206,23 +178,41 @@ public class AdminController {
     static class SuspendRequest {
         private String reason;
         private Integer days;
-
         public String getReason() { return reason; }
         public Integer getDays() { return days; }
-
         public void setReason(String reason) { this.reason = reason; }
         public void setDays(Integer days) { this.days = days; }
     }
-
-    // ==================== AdminController.java (추가->통계랑 로그) 장소영====================
 
     @GetMapping("/dashboard/stats")
     public ResponseEntity<?> getDashboardStats() {
         return ResponseEntity.ok(adminService.getDashboardStats());
     }
 
+    // ==================== #장소영~여기까지: recent-logs도 DTO로 반환(프론트에서 안전하게 렌더) ====================
     @GetMapping("/dashboard/recent-logs")
-    public ResponseEntity<?> getRecentLogs(@RequestParam(defaultValue = "10") int limit) {
-        return ResponseEntity.ok(adminService.getRecentAdminLogs(limit));
+    public ResponseEntity<List<AdminLogDto>> getRecentLogs(@RequestParam(defaultValue = "10") int limit) {
+        List<AdminLogDto> result = adminService.getRecentAdminLogs(limit).stream()
+                .map(AdminLogDto::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
+    // ==================== #여기까지 ====================
+
+    // ==================== #장소영~여기까지: ✅ 최근 N일(일별) 가입자 수 추이 API ====================
+    // GET /api/admin/dashboard/signups-daily?days=7
+    // 반환 예: [{ day: "2026-01-28", signup_count: 2 }, ...]
+    @GetMapping("/dashboard/signups-daily")
+    public ResponseEntity<List<Map<String, Object>>> getDailySignups(@RequestParam(defaultValue = "7") int days) {
+        return ResponseEntity.ok(adminService.getDailySignupTrend(days));
+    }
+    // ==================== #여기까지 ====================
+
+    // (선택) 주별도 이미 서비스에 있어서 엔드포인트도 같이 달아둠
+    // ==================== #장소영~여기까지: 주별 가입자수 추이 API ====================
+    @GetMapping("/dashboard/signups-weekly")
+    public ResponseEntity<List<Map<String, Object>>> getWeeklySignups(@RequestParam(defaultValue = "6") int weeks) {
+        return ResponseEntity.ok(adminService.getWeeklySignupTrend(weeks));
+    }
+    // ==================== #여기까지 ====================
 }

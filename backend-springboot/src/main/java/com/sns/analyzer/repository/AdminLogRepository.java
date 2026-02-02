@@ -2,7 +2,9 @@
 package com.sns.analyzer.repository;
 
 import com.sns.analyzer.entity.AdminLog;
+import org.springframework.data.domain.Pageable; // #장소영~여기까지: Pageable import 추가
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query; // #장소영~여기까지: @Query 사용
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,5 +24,27 @@ public interface AdminLogRepository extends JpaRepository<AdminLog, Long> {
 
     List<AdminLog> findByCreatedAtAfter(LocalDateTime after);
 
-    List<AdminLog> findByAdminIdAndCreatedAtBetween(Long adminId, LocalDateTime start, LocalDateTime end);
+    List<AdminLog> findByAdminIdAndCreatedAtBetween(
+            Long adminId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
+    // ==================== #장소영~여기까지: ✅ 최근 관리자 로그 N개 조회 (Dashboard용) ====================
+    // AdminService.getRecentAdminLogs(int limit) 에서 사용
+    // PageRequest.of(0, limit) → Pageable 로 받음
+    @Query("SELECT a FROM AdminLog a ORDER BY a.createdAt DESC")
+    List<AdminLog> findRecentLogs(Pageable pageable);
+    // ==================== #여기까지 ====================
+
+    // ==================== #장소영~여기까지: ✅ 관리자 액션 타입 TOP N 집계 ====================
+    // AdminService.getActionTypeTop(int limit) 에서 사용
+    @Query(value = """
+        SELECT action_type AS actionType, COUNT(*) AS cnt
+        FROM admin_logs
+        GROUP BY action_type
+        ORDER BY cnt DESC
+        """, nativeQuery = true)
+    List<Object[]> countActionTypeTop(Pageable pageable);
+    // ==================== #여기까지 ====================
 }

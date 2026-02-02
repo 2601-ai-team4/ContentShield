@@ -51,4 +51,28 @@ export const adminService = {
     const response = await api.get('/admin/users/suspended')
     return response.data
   },
+
+  // ==================== #장소영~여기까지: ✅ Admin Dashboard 연동 API 추가 ====================
+  // GET /api/admin/dashboard/stats
+  getDashboardStats: async () => {
+    const response = await api.get('/admin/dashboard/stats')
+    return response.data
+  },
+
+  // GET /api/admin/dashboard/recent-logs?limit=10
+  getRecentLogs: async (limit = 10) => {
+    const response = await api.get('/admin/dashboard/recent-logs', {
+      params: { limit },
+    })
+    return response.data
+  },
+
+  // GET /api/admin/dashboard/signups-daily?days=7
+  getDailySignups: async (days = 7) => {
+    const response = await api.get('/admin/dashboard/signups-daily', {
+      params: { days },
+    })
+    return response.data
+  },
+  // ==================== #여기까지 ====================
 }
