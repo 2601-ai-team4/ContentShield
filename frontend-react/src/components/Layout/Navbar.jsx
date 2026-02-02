@@ -1,31 +1,8 @@
-// Navbar.jsx
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate, useLocation } from 'react-router-dom';
-// Switch를 제거하고 ArrowLeftRight만 남깁니다.
-import { Shield, User, Power, ArrowLeftRight } from 'lucide-react';
-// Navbar.jsx
-import { useAuthStore } from '../../stores/authStore';
-import { useNavigate, useLocation } from 'react-router-dom';
-// Switch를 제거하고 ArrowLeftRight만 남깁니다.
 import { Shield, User, Power, ArrowLeftRight } from 'lucide-react';
 
 export default function Navbar() {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  if (!user) return null;
-
-  const isAdminMode = location.pathname.startsWith('/admin');
-  const isAdmin = user?.role === 'ADMIN';
-
-  const toggleMode = () => {
-    if (isAdminMode) {
-      navigate('/dashboard');
-    } else {
-      navigate('/admin/dashboard');
-    }
-  };
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,9 +24,6 @@ export default function Navbar() {
     logout();
     navigate('/login');
   };
-    logout();
-    navigate('/login');
-  };
 
   return (
     <nav className="bg-slate-900 border-b border-slate-800 px-6 py-3">
@@ -59,21 +33,22 @@ export default function Navbar() {
 
           {/* 🎯 현재 모드 상태 배지 */}
           {isAdmin && (
-            <span className={`px-3 py-1 rounded-full text-xs font-bold ${isAdminMode
+            <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+              isAdminMode
                 ? 'bg-red-900/30 text-red-400 border border-red-900/50'
                 : 'bg-blue-900/30 text-blue-400 border border-blue-900/50'
-              }`}>
+            }`}>
               {isAdminMode ? (
-                <><Shield className="inline h-3 w-3 mr-1" />Admin Mode</>
+                <><Shield className="h-3 w-3" />Admin Mode</>
               ) : (
-                <><User className="inline h-3 w-3 mr-1" />User Mode</>
+                <><User className="h-3 w-3" />User Mode</>
               )}
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-4">
-          {/* 🔄 관리자용 모드 전환 버튼 (하단 중복 제거 및 Switch 에러 수정) */}
+          {/* 🔄 관리자용 모드 전환 버튼 */}
           {isAdmin && (
             <button
               onClick={toggleMode}

@@ -1,6 +1,6 @@
 // [File: App.jsx / Date: 2026-01-25 / 작성자: Antigravity / 설명: 사이드바 레이아웃 적용 버전]
 import React from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 
 // Auth 관련 컴포넌트
@@ -10,7 +10,7 @@ import PrivateRoute from './components/Auth/PrivateRoute'
 
 // 레이아웃 컴포넌트
 import Navbar from './components/Layout/Navbar'
-import Sidebar from './components/Layout/Sidebar'
+import Sidebar from './components/Layout/Sidebar' // ✅ 사이드바 임포트
 
 // 통합 대시보드 (V2) - 사용자용
 import UserDashboard from './components/User/DashboardV2'
@@ -18,13 +18,10 @@ import UserDashboard from './components/User/DashboardV2'
 // ✅ 관리자 전용 대시보드 (분리)
 import AdminDashboard from './components/Admin/Dashboard'
 
-// 관리자 전용 대시보드 (분리)
-import AdminDashboard from './components/Admin/Dashboard'
-
-// Template Manager (AI Writing Assistant 역할)
+// ✅ Template Manager (AI Writing Assistant 역할)
 import TemplateManager from './components/User/TemplateManager'
 
-// Blocked Word Manager (차단 단어 관리)
+// ✅ Blocked Word Manager (차단 단어 관리)
 import BlockedWordManager from './components/User/BlockedWordManager'
 
 // 사용자 기능
@@ -35,24 +32,20 @@ import UserManagement from './components/Admin/UserManagement'
 import NoticeManager from './components/Admin/NoticeManager'
 import LogViewer from './components/Admin/LogViewer'
 import SuggestionManager from './components/Admin/SuggestionManager'
-import LogViewer from './components/Admin/LogViewer'
-import SuggestionManager from './components/Admin/SuggestionManager'
-
 function App() {
   const { user } = useAuthStore()
-  const location = useLocation()
-  
-  const isAdminMode = location.pathname.startsWith('/admin')
-  const showSidebar = user && user.role === 'ADMIN' && isAdminMode
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-200 overflow-hidden">
-      {showSidebar && <Sidebar />}
+      {/* 1. 왼쪽 사이드바: 로그인했을 때만 노출 */}
+      {user && <Sidebar />}
+      {/* 2. 오른쪽 메인 영역 */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* 상단 네비바 */}
         <Navbar />
-<main className="flex-1 overflow-y-auto p-6">
-      <Routes>
-        {/* =======================
+        <main className="flex-1 overflow-y-auto p-6">
+          <Routes>
+            {/* =======================
             공공 경로
         ======================= */}
             <Route path="/login" element={<Login />} />
@@ -104,7 +97,7 @@ function App() {
                 <UserDashboard />
               </PrivateRoute>
             } />
-            <Route path="/notices" element={
+						<Route path="/notices" element={
               <PrivateRoute>
                 <UserDashboard />
               </PrivateRoute>
@@ -114,7 +107,7 @@ function App() {
                 <UserDashboard />
               </PrivateRoute>
             } />
-
+            
             {/* 🧠 Template Manager (독립 페이지) */}
             <Route path="/writing" element={
               <PrivateRoute>
@@ -122,12 +115,12 @@ function App() {
               </PrivateRoute>
             } />
 
-        {/* 🚫 Blocked Word Manager (차단 단어 관리) */}
-        <Route path="/blocked-words" element={
-          <PrivateRoute>
-            <BlockedWordManager />
-          </PrivateRoute>
-        } />
+            {/* 🚫 Blocked Word Manager (차단 단어 관리) */}
+            <Route path="/blocked-words" element={
+              <PrivateRoute>
+                <BlockedWordManager />
+              </PrivateRoute>
+            } />
 
             {/* 💡 Suggestions (건의사항) */}
             <Route path="/suggestions" element={
