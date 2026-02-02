@@ -3,6 +3,11 @@ import { useAuthStore } from '../../stores/authStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 // Switch를 제거하고 ArrowLeftRight만 남깁니다.
 import { Shield, User, Power, ArrowLeftRight } from 'lucide-react';
+// Navbar.jsx
+import { useAuthStore } from '../../stores/authStore';
+import { useNavigate, useLocation } from 'react-router-dom';
+// Switch를 제거하고 ArrowLeftRight만 남깁니다.
+import { Shield, User, Power, ArrowLeftRight } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
@@ -21,8 +26,27 @@ export default function Navbar() {
       navigate('/admin/dashboard');
     }
   };
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  if (!user) return null;
+
+  const isAdminMode = location.pathname.startsWith('/admin');
+  const isAdmin = user?.role === 'ADMIN';
+
+  const toggleMode = () => {
+    if (isAdminMode) {
+      navigate('/dashboard');
+    } else {
+      navigate('/admin/dashboard');
+    }
+  };
 
   const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
     logout();
     navigate('/login');
   };

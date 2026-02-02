@@ -1,31 +1,37 @@
 // ==================== src/components/Admin/NoticeManager.jsx ====================
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, Plus, Edit, Trash2, Pin, X } from 'lucide-react'
+import { Bell, Plus, Edit, Trash2, Pin, X, Eye, Calendar } from 'lucide-react'
 import { noticeService } from '../../services/noticeService';
 
 export default function NoticeManager() {
   const [showModal, setShowModal] = useState(false)
   const [editingNotice, setEditingNotice] = useState(null)
+  const [page, setPage] = useState(0)
+  const pageSize = 10
+
   const queryClient = useQueryClient()
 
-  // ✅ 공지사항 목록 조회
-  const { data: notices, isLoading, error } = useQuery({
-    queryKey: ['notices'],
-    queryFn: noticeService.getAll,
-  })
+  // 페이징 적용된 조회
+  const {
+    data: pageData,
+    isLoading,
+    error
+  } = useQuery({
+    queryKey: ['notices', page],
+    queryFn: () => noticeService.getPaged(page, pageSize),  // 개별 파라미터로 전달
+  });
 
-  // ✅ 에러 확인용 추가
-  useEffect(() => {
-    if (error) {
-      console.error('공지사항 조회 실패:', error);
-    }
-    if (notices) {
-      console.log('공지사항 데이터:', notices);
-    }
-  }, [error, notices]);
+  const notices = pageData?.content || []
+  const totalPages = pageData?.totalPages || 1
+  const currentPage = pageData?.number || 0
 
-  // ✅ 공지사항 생성 Mutation
+  // 에러 로그 (필요 시 UI로 표시 가능)
+  if (error) {
+    console.error('공지사항 조회 실패:', error)
+  }
+
+  // Mutation들 (기존 그대로)
   const createMutation = useMutation({
     mutationFn: noticeService.create,
     onSuccess: () => {
@@ -33,13 +39,12 @@ export default function NoticeManager() {
       setShowModal(false)
       alert('공지사항이 생성되었습니다.')
     },
-    onError: (error) => {
-      console.error('공지 생성 실패:', error)
+    onError: (err) => {
+      console.error('공지 생성 실패:', err)
       alert('공지사항 생성에 실패했습니다.')
     }
   })
 
-  // ✅ 공지사항 수정 Mutation
   const updateMutation = useMutation({
     mutationFn: ({ noticeId, data }) => noticeService.update(noticeId, data),
     onSuccess: () => {
@@ -48,33 +53,31 @@ export default function NoticeManager() {
       setEditingNotice(null)
       alert('공지사항이 수정되었습니다.')
     },
-    onError: (error) => {
-      console.error('공지 수정 실패:', error)
+    onError: (err) => {
+      console.error('공지 수정 실패:', err)
       alert('공지사항 수정에 실패했습니다.')
     }
   })
 
-  // ✅ 공지사항 삭제 Mutation
   const deleteMutation = useMutation({
     mutationFn: noticeService.delete,
     onSuccess: () => {
       queryClient.invalidateQueries(['notices'])
       alert('공지사항이 삭제되었습니다.')
     },
-    onError: (error) => {
-      console.error('공지 삭제 실패:', error)
+    onError: (err) => {
+      console.error('공지 삭제 실패:', err)
       alert('공지사항 삭제에 실패했습니다.')
     }
   })
 
-  // ✅ 공지사항 고정/해제 Mutation
   const togglePinMutation = useMutation({
     mutationFn: noticeService.togglePin,
     onSuccess: () => {
       queryClient.invalidateQueries(['notices'])
     },
-    onError: (error) => {
-      console.error('고정 처리 실패:', error)
+    onError: (err) => {
+      console.error('고정 처리 실패:', err)
       alert('고정 처리에 실패했습니다.')
     }
   })
@@ -124,64 +127,106 @@ export default function NoticeManager() {
         </button>
       </div>
 
+      {error && (
+        <div className="mb-6 p-4 bg-red-900/30 border border-red-800 rounded-lg text-red-300">
+          공지사항을 불러오는 중 오류가 발생했습니다: {error.message || '알 수 없는 오류'}
+        </div>
+      )}
+
       <div className="space-y-4">
-        {notices && notices.length > 0 ? (
+        {notices.length > 0 ? (
           notices.map((notice) => (
-            <div key={notice.noticeId} className="bg-slate-900 rounded-lg shadow-xl border border-slate-800 p-6 hover:border-blue-500/30 transition-all">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+            <div key={notice.noticeId} className="bg-slate-900 rounded-lg shadow-xl border border-slate-800 p-5 hover:border-blue-500/30 transition-all">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     {notice.isPinned && (
-                      <Pin className="h-5 w-5 text-blue-400 fill-blue-400/20" />
+                      <Pin className="h-5 w-5 text-blue-400 fill-blue-400/20 flex-shrink-0" />
                     )}
-                    <h3 className="text-xl font-semibold text-white">{notice.title}</h3>
-                    <span className={`px-2 py-1 text-xs font-bold rounded ${getTypeColor(notice.noticeType)}`}>
+                    <h3 className="text-lg font-semibold text-white truncate flex-1">
+                      {notice.title}
+                    </h3>
+                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${getTypeColor(notice.noticeType)} flex-shrink-0`}>
                       {notice.noticeType}
                     </span>
                   </div>
-                  <p className="text-slate-400 mb-3 leading-relaxed">{notice.content}</p>
-                  <div className="flex items-center gap-4 text-sm text-slate-500">
-                    <span>👁️ Views: {notice.viewCount}</span>
-                    <span>📅 {new Date(notice.createdAt).toLocaleString('ko-KR')}</span>
+
+                  <p className="text-slate-400 text-sm leading-relaxed line-clamp-1 overflow-hidden text-ellipsis">
+                    {notice.content || "내용 없음"}
+                  </p>
+
+                  <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <Eye size={14} />
+                      Views: {notice.viewCount}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar size={14} />
+                      {new Date(notice.createdAt).toLocaleString('ko-KR', {
+                        year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </span>
                   </div>
                 </div>
-                <div className="flex gap-2 ml-4">
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     onClick={() => handleTogglePin(notice.noticeId)}
-                    className={`p-2 rounded-lg transition-all ${notice.isPinned
-                      ? 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20'
-                      : 'text-slate-600 hover:text-blue-400 hover:bg-slate-800'
-                      }`}
-                    title={notice.isPinned ? '고정 해제' : '상단 고정'}
+                    className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                    title="고정 토글"
                   >
-                    <Pin className="h-5 w-5" />
+                    <Pin size={18} className={notice.isPinned ? "text-yellow-400 fill-yellow-400/30" : "text-slate-400"} />
                   </button>
                   <button
                     onClick={() => handleEdit(notice)}
-                    className="p-2 text-slate-600 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                    className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
                     title="수정"
                   >
-                    <Edit className="h-5 w-5" />
+                    <Edit size={18} className="text-blue-400" />
                   </button>
                   <button
                     onClick={() => handleDelete(notice.noticeId)}
-                    className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                    className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
                     title="삭제"
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Trash2 size={18} className="text-red-400" />
                   </button>
                 </div>
               </div>
             </div>
           ))
         ) : (
-          <div className="text-center py-20 text-slate-600">
-            <Bell className="h-16 w-16 mx-auto mb-4 opacity-20" />
-            <p className="text-lg">등록된 공지사항이 없습니다.</p>
-            <p className="text-sm mt-2">새로운 공지를 작성해보세요!</p>
+          <div className="bg-slate-900 rounded-lg shadow-xl border border-slate-800 p-6 text-center text-slate-500">
+            <Bell className="mx-auto mb-4 text-slate-700" size={48} />
+            <p>등록된 공지사항이 없습니다.</p>
           </div>
         )}
       </div>
+
+      {/* 페이징 UI */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center mt-10 gap-4">
+          <button
+            disabled={currentPage === 0}
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            이전
+          </button>
+
+          <span className="text-slate-300 font-medium">
+            {currentPage + 1} / {totalPages}
+          </span>
+
+          <button
+            disabled={currentPage >= totalPages - 1}
+            onClick={() => setPage(p => p + 1)}
+            className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            다음
+          </button>
+        </div>
+      )}
 
       {showModal && (
         <NoticeModal
@@ -203,11 +248,12 @@ export default function NoticeManager() {
   )
 }
 
+// NoticeModal 컴포넌트 (기존 그대로 유지)
 function NoticeModal({ notice, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
     title: notice?.title || '',
     content: notice?.content || '',
-    noticeType: notice?.noticeType || 'GENERAL',
+    noticeType: notice?.noticeType || 'GENERAL'
   })
 
   const handleSubmit = (e) => {
@@ -235,6 +281,7 @@ function NoticeModal({ notice, onClose, onSubmit }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 제목, 내용, 유형 입력 필드들 (기존 그대로) */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">제목</label>
             <input
@@ -244,6 +291,7 @@ function NoticeModal({ notice, onClose, onSubmit }) {
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               placeholder="공지사항 제목을 입력하세요"
+
             />
           </div>
 
@@ -294,7 +342,6 @@ function NoticeModal({ notice, onClose, onSubmit }) {
   )
 }
 
-// 공지 타입별 색상
 function getTypeColor(type) {
   const colors = {
     GENERAL: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',

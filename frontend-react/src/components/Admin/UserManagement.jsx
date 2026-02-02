@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminService } from '../../services/adminService'
-import { Search, UserX, Flag, CheckCircle } from 'lucide-react'
+import { Search, UserX, UserCheck, Flag, FlagOff, RefreshCw } from 'lucide-react'
 
 export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -31,8 +31,9 @@ export default function UserManagement() {
     },
   })
 
+  // 검색 필터
   const filteredUsers = users?.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -69,13 +70,13 @@ export default function UserManagement() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-white mb-8">User Management</h1>
 
-      {/* Search */}
+      {/* 검색 */}
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder="이메일 또는 이름으로 검색..."
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"

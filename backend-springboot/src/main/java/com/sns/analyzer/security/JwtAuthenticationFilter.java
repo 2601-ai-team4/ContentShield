@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails; // #장소영~
+import org.springframework.security.core.userdetails.UserDetails; // ⭐ 수정
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -31,39 +31,51 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
 
-        if (path.startsWith("/api/auth/")) return true;
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
+        // 로그인/회원가입은 JWT 검사 제외
+        if (path.startsWith("/api/auth/"))
+            return true;
+
+        // CORS preflight 요청 제외
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod()))
+            return true;
 
         return false;
     }
+    // ===========================
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain) throws ServletException, IOException {
+        System.out.println("DEBUG: JwtAuthenticationFilter for " + request.getRequestURI());
+
         try {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
                 String username = jwtTokenProvider.getUsernameFromToken(jwt);
+                System.out.println("DEBUG: Valid JWT for user: " + username);
 
-                // =========================================================
-                // #장소영~ 핵심 수정: authorities 포함해서 SecurityContext 세팅
-                // - @PreAuthorize("hasRole('ADMIN')")가 동작하려면 권한이 필요함
-                // =========================================================
+                // ⭐ 수정: username(String) → UserDetails 로 변환
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,                 // principal
-                                null,
-                                userDetails.getAuthorities() // ✅ 권한 포함
-                        );
-                // #여기까지
+                // ⭐ 수정: principal에 userDetails, authorities 포함
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities());
 
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request));
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else {
+                System.out.println("DEBUG: JWT invalid or missing");
             }
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
+            System.err.println("ERROR: JwtAuthenticationFilter failed: " + ex.getMessage());
+            ex.printStackTrace();
             log.error("Could not set user authentication in security context", ex);
         }
 

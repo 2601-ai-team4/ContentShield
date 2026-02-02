@@ -22,6 +22,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
+import static org.springframework.http.HttpMethod.GET;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -56,16 +58,47 @@ public class SecurityConfig {
                 // ============================================
                 // 개발 모드: 모든 API 허용 (현재 활성화)
                 // ============================================
+                // http
+                // .csrf(csrf -> csrf.disable())
+                // .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // .sessionManagement(session -> session
+                // .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // .authorizeHttpRequests(auth -> auth
+                // .anyRequest().permitAll() // 🔓 모든 요청 허용 (개발용)
+                // )
+                // .authenticationProvider(authenticationProvider())
+                // .addFilterBefore(jwtAuthenticationFilter,
+                // UsernamePasswordAuthenticationFilter.class);
+
+                // return http.build();
+
+                // ============================================
+                // 운영 모드: JWT 인증 활성화 (나중에 사용)
+                // ============================================
+                // 배포 시 위의 개발 모드를 주석 처리하고 아래 코드의 주석을 해제하세요
+
                 http
-                                .csrf(csrf -> csrf.disable())
+                                .csrf(csrf -> csrf.disable()) // JWT 사용 시 CSRF 비활성화
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
-                                                .anyRequest().permitAll() // 🔓 모든 요청 허용 (개발용)
-                                )
+                                                // 🔓 공개 엔드포인트 - 인증 없이 접근 가능
+                                                .requestMatchers("/api/auth/**").permitAll() // 로그인, 회원가입
+                                                .requestMatchers(GET, "/api/notices/**").permitAll() // 공지사항 조회
+
+                                                .requestMatchers("/api/public/**").permitAll() // 기타 공개 API
+                                                .requestMatchers("/actuator/health").permitAll() // 헬스체크
+
+                                                // 🔐 관리자 전용 엔드포인트
+                                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                                                // 🔐 나머지는 인증 필요 (JWT 토큰 필수)
+                                                .anyRequest().authenticated())
                                 .authenticationProvider(authenticationProvider())
-                                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                                .addFilterBefore(
+                                                jwtAuthenticationFilter,
+                                                UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
 

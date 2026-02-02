@@ -3,10 +3,18 @@ package com.sns.analyzer.controller;
 import com.sns.analyzer.entity.*;
 import com.sns.analyzer.service.*;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-// import org.springframework.security.access.prepost.PreAuthorize;  // 임시 주석
-// import org.springframework.security.core.Authentication;  // 임시 주석
+import org.springframework.security.access.prepost.PreAuthorize; // 임시 주석
+import org.springframework.security.core.Authentication; // 임시 주석
 import org.springframework.web.bind.annotation.*;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
 import java.util.List;
 import java.util.Map;
 
@@ -20,11 +28,28 @@ public class NoticeController {
     // private final UserService userService; // 임시 주석
 
     /**
-     * 공지사항 목록 (모든 사용자)
+     * 공지사항 전체 목록 (페이징 없음 - 유저용)
+     */
+    @GetMapping("/all")
+    public ResponseEntity<List<Notice>> getAllNoticesWithoutPaging() {
+        return ResponseEntity.ok(noticeService.getAllNotices());
+    }
+
+    /**
+     * 공지사항 목록 (페이징 지원 - 관리자용)
      */
     @GetMapping
-    public ResponseEntity<List<Notice>> getAllNotices() {
-        return ResponseEntity.ok(noticeService.getAllNotices());
+    public ResponseEntity<Page<Notice>> getAllNotices(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("isPinned").descending()
+                        .and(Sort.by("createdAt").descending()));
+
+        return ResponseEntity.ok(noticeService.getAllNotices(pageable));
     }
 
     /**
@@ -39,6 +64,7 @@ public class NoticeController {
      * 공지사항 생성 (테스트용)
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createNotice(@RequestBody NoticeRequest request) {
         Long adminId = 1L; // 임시 하드코딩
 
@@ -61,7 +87,8 @@ public class NoticeController {
         Notice updated = noticeService.updateNotice(
                 noticeId,
                 request.getTitle(),
-                request.getContent());
+                request.getContent(),
+                request.getNoticeType().name());
 
         return ResponseEntity.ok(updated);
     }

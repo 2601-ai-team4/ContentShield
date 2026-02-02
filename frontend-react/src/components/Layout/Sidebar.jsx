@@ -47,13 +47,14 @@ export default function Sidebar() {
     { path: '/admin/notices', icon: Bell, label: 'Notices' },
     { path: '/admin/logs', icon: FileText, label: 'System Logs' },
     { path: '/admin/suggestions', icon: MessageSquare, label: 'Suggestions' },
+    { path: '/admin/suggestions', icon: MessageSquare, label: 'Suggestions' },
   ]
 
   const showUserMenu = !isAdmin || !isAdminMode
   const showAdminMenu = isAdmin && isAdminMode
 
   return (
-    <div className="w-64 bg-slate-950 h-screen border-r border-white/10">
+    <div className="w-64 bg-slate-900 h-screen border-r-2 border-slate-700 shadow-xl shadow-slate-900/50">
       <div className="py-6 px-3">
         {showAdminMenu && (
           <>

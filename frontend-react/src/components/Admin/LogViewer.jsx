@@ -7,6 +7,7 @@ import { FileText, Download, Filter } from 'lucide-react'
 export default function LogViewer() {
   const [logType, setLogType] = useState('admin')
 
+  // ✅ React Query v5 문법
   const { data: adminLogs } = useQuery({
     queryKey: ['adminLogs', logType],
     queryFn: () => adminService.getAdminLogs(),
@@ -16,7 +17,7 @@ export default function LogViewer() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-white">System Logs</h1>
+        <h1 className="text-3xl font-bold text-white">📜 System Logs</h1>
         <div className="flex space-x-2">
           <select
             value={logType}
