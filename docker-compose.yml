@@ -20,8 +20,6 @@ services:
     restart: always
     ports:
       - "8081:8081"
-    env_file:
-      - .env
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mariadb://host.docker.internal:3307/sns_content_analyzer
       - SPRING_DATASOURCE_USERNAME=root
@@ -35,8 +33,6 @@ services:
     restart: always
     ports:
       - "8000:8000"
-    env_file:
-      - .env
 
   frontend-react:
     build: ./frontend-react
