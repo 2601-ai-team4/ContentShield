@@ -1,0 +1,52 @@
+services:
+  jenkins:
+    build: ./jenkins
+    container_name: jenkins
+    restart: always
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  backend-springboot:
+    build: ./backend-springboot
+    container_name: backend-springboot
+    restart: always
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://host.docker.internal:3307/sns_content_analyzer
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=1234
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  backend-fastapi:
+    build: ./backend-fastapi
+    container_name: backend-fastapi
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+
+  frontend-react:
+    build: ./frontend-react
+    container_name: frontend-react
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend-springboot
+      - backend-fastapi
+
+volumes:
+  jenkins_data:
