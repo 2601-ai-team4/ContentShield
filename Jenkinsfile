@@ -18,10 +18,10 @@ pipeline {
                 echo 'Cleaning up existing containers...'
                 script {
                     sh '''
-                        # 실행 중인 컨테이너 강제 종료 및 제거
-                        docker rm -f backend-springboot backend-fastapi frontend-react jenkins || true
+                        # 실행 중인 컨테이너 강제 종료 및 제거 (jenkins 제외)
+                        docker rm -f backend-springboot backend-fastapi frontend-react || true
                         
-                        # docker-compose 리소스 정리
+                        # docker-compose 리소스 정리 (jenkins 제외)
                         docker-compose down -v --remove-orphans || true
                         
                         # 사용하지 않는 컨테이너 정리
