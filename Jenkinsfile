@@ -13,14 +13,29 @@ pipeline {
             }
         }
         
+        stage('Cleanup') {
+            steps {
+                echo 'Cleaning up existing containers...'
+                script {
+                    sh '''
+                        # 실행 중인 컨테이너 강제 종료 및 제거
+                        docker rm -f backend-springboot backend-fastapi frontend-react jenkins || true
+                        
+                        # docker-compose 리소스 정리
+                        docker-compose down -v --remove-orphans || true
+                        
+                        # 사용하지 않는 컨테이너 정리
+                        docker container prune -f || true
+                    '''
+                }
+            }
+        }
+        
         stage('Build') {
             steps {
                 echo 'Building Docker images...'
                 script {
-                    sh '''
-                        docker-compose down
-                        docker-compose build --no-cache
-                    '''
+                    sh 'docker-compose build --no-cache'
                 }
             }
         }
@@ -37,9 +52,7 @@ pipeline {
             steps {
                 echo 'Deploying application...'
                 script {
-                    sh '''
-                        docker-compose up -d backend-springboot backend-fastapi frontend-react
-                    '''
+                    sh 'docker-compose up -d --force-recreate backend-springboot backend-fastapi frontend-react'
                 }
             }
         }
@@ -48,7 +61,16 @@ pipeline {
             steps {
                 echo 'Verifying deployment...'
                 script {
-                    sh 'docker-compose ps'
+                    sh '''
+                        echo "=== Running Containers ==="
+                        docker-compose ps
+                        
+                        echo "=== All Containers ==="
+                        docker ps
+                        
+                        echo "=== Container Logs (last 20 lines) ==="
+                        docker-compose logs --tail=20
+                    '''
                 }
             }
         }
