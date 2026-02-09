@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 import logging
-from langchain_community.llms import Ollama
+from langchain_groq import ChatGroq
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from app.core.prompts import SYSTEM_PROMPT, ANALYSIS_PROMPT_TEMPLATE
@@ -9,34 +9,34 @@ logger = logging.getLogger(__name__)
 
 
 class LegalLLM:
-    """LLM for legal analysis using Llama3 via Ollama"""
+    """LLM for legal analysis using Llama3 via Groq API"""
     
     def __init__(
         self,
-        base_url: str = "http://localhost:11434",
-        model: str = "llama3",
+        api_key: str,
+        model: str = "llama-3.1-70b-versatile",
         temperature: float = 0.3
     ):
         """
-        Initialize LLM
+        Initialize LLM with Groq API
         
         Args:
-            base_url: Ollama server URL
-            model: Model name (default: llama3)
+            api_key: Groq API key
+            model: Model name (default: llama-3.1-70b-versatile)
             temperature: Sampling temperature (lower = more deterministic)
         """
-        self.base_url = base_url
+        self.api_key = api_key
         self.model = model
         self.temperature = temperature
         
-        # Initialize Ollama LLM
-        self.llm = Ollama(
-            base_url=base_url,
-            model=model,
+        # Initialize Groq LLM
+        self.llm = ChatGroq(
+            groq_api_key=api_key,
+            model_name=model,
             temperature=temperature
         )
         
-        logger.info(f"Initialized Ollama LLM with model: {model}")
+        logger.info(f"Initialized Groq LLM with model: {model}")
     
     def analyze_comment(self, comment: str, context: str) -> Dict[str, Any]:
         """

@@ -1,28 +1,27 @@
 from typing import List
 import logging
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 logger = logging.getLogger(__name__)
 
 
 class Embedder:
-    """Generate embeddings using Ollama"""
+    """Generate embeddings using HuggingFace sentence-transformers"""
     
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "nomic-embed-text"):
+    def __init__(self, model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
         """
-        Initialize embedder with Ollama
+        Initialize embedder with HuggingFace
         
         Args:
-            base_url: Ollama server URL
-            model: Embedding model name (default: nomic-embed-text)
+            model: Embedding model name (default: multilingual model for Korean support)
         """
-        self.base_url = base_url
         self.model = model
-        self.embeddings = OllamaEmbeddings(
-            base_url=base_url,
-            model=model
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=model,
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
         )
-        logger.info(f"Initialized Ollama embedder with model: {model}")
+        logger.info(f"Initialized HuggingFace embedder with model: {model}")
     
     def embed_text(self, text: str) -> List[float]:
         """

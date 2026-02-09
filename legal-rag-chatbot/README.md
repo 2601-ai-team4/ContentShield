@@ -30,8 +30,8 @@ LLM 분석 (Llama3 via Ollama)
 ## 📋 기술 스택
 
 - **Backend**: FastAPI 0.109.0
-- **LLM**: Llama3 (via Ollama)
-- **Embedding**: nomic-embed-text (via Ollama)
+- **LLM**: Llama-3.1-70B (via Groq API)
+- **Embedding**: HuggingFace sentence-transformers (로컬)
 - **Vector DB**: ChromaDB 0.4.22
 - **Framework**: LangChain 0.1.4
 - **Container**: Docker & Docker Compose
@@ -40,16 +40,9 @@ LLM 분석 (Llama3 via Ollama)
 
 ### 사전 요구사항
 
-1. **Ollama 설치 및 모델 다운로드**
-   ```bash
-   # Ollama 설치 (https://ollama.ai/)
-   
-   # Llama3 모델 다운로드
-   ollama pull llama3
-   
-   # Embedding 모델 다운로드
-   ollama pull nomic-embed-text
-   ```
+1. **Groq API 키**
+   - Groq Console에서 API 키 발급: https://console.groq.com/
+   - 무료 티어 사용 가능
 
 2. **Docker 설치** (선택사항)
    - Docker Desktop 또는 Docker Engine
@@ -69,7 +62,7 @@ pip install -r requirements.txt
 
 # 4. 환경 변수 설정
 cp .env.example .env
-# .env 파일 확인 (기본값 사용 가능)
+# .env 파일을 열어 GROQ_API_KEY를 입력하세요
 
 # 5. 서버 실행
 uvicorn app.main:app --reload
@@ -216,10 +209,9 @@ legal-rag-chatbot/
 `.env` 파일에서 다음 설정을 변경할 수 있습니다:
 
 ```env
-# Ollama 설정
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+# Groq API 설정
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.1-70b-versatile
 
 # RAG 설정
 CHUNK_SIZE=500
@@ -234,14 +226,10 @@ API_PORT=8000
 
 ## 🔧 트러블슈팅
 
-### Ollama 연결 실패
-```bash
-# Ollama 서비스 확인
-ollama list
-
-# Ollama 서버 실행 확인
-curl http://localhost:11434/api/tags
-```
+### Groq API 연결 실패
+- Groq API 키가 올바른지 확인
+- API 사용량 제한 확인
+- 네트워크 연결 확인
 
 ### ChromaDB 초기화
 ```bash

@@ -10,10 +10,10 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     
-    # Ollama (Llama3)
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama3"
-    OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
+    # Groq API (Llama3)
+    GROQ_API_KEY: str
+    GROQ_MODEL: str = "llama-3.1-70b-versatile"
+    GROQ_EMBEDDING_MODEL: str = "llama-3.1-70b-versatile"  # Groq doesn't have dedicated embedding model, will use sentence-transformers locally
     
     # ChromaDB
     CHROMA_PERSIST_DIR: str = "./chroma_db"

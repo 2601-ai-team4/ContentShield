@@ -42,11 +42,8 @@ def initialize_services():
             collection_name=settings.CHROMA_COLLECTION_NAME
         )
         
-        # Initialize embedder
-        embedder = Embedder(
-            base_url=settings.OLLAMA_BASE_URL,
-            model=settings.OLLAMA_EMBEDDING_MODEL
-        )
+        # Initialize embedder (HuggingFace for local embedding)
+        embedder = Embedder()
         
         # Initialize retriever
         retriever = Retriever(
@@ -56,10 +53,10 @@ def initialize_services():
             similarity_threshold=settings.SIMILARITY_THRESHOLD
         )
         
-        # Initialize LLM
+        # Initialize LLM (Groq API)
         llm = LegalLLM(
-            base_url=settings.OLLAMA_BASE_URL,
-            model=settings.OLLAMA_MODEL
+            api_key=settings.GROQ_API_KEY,
+            model=settings.GROQ_MODEL
         )
         
         logger.info("All services initialized successfully")
