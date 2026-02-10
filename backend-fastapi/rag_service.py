@@ -1,5 +1,7 @@
 import logging
 import os
+import datetime
+from decimal import Decimal
 from langchain_community.utilities import SQLDatabase
 from langchain.chains import create_sql_query_chain
 from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool
@@ -17,73 +19,72 @@ from langchain_groq import ChatGroq
 logger = logging.getLogger(__name__)
 
 class RAGService:
-    def __init__(self, model_name="llama-3.1-8b-instant", api_key=None): 
-        # DB 연결 설정 (MariaDB)
-        db_user = "root"
-        db_password = "1234"
-        db_host = "localhost"
-        db_port = "3307"
-        db_name = "sns_content_analyzer"
+    def __init__(self, model_name="llama-3.1-8b-instant", api_key=None):
+        self.db = None
+        self.llm = None
+        self.chain = None
+        self.chat_history = []
         
-        self.db_uri = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        # 1. DB 연결
+        db_user = os.getenv("DB_USER", "root")
+        db_password = os.getenv("DB_PASSWORD", "1234")
+        db_host = os.getenv("DB_HOST", "localhost")
+        db_port = os.getenv("DB_PORT", "3307")
+        db_name = os.getenv("DB_NAME", "sns_content_analyzer")
+        
+        self.db_url = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         
         try:
-            # 토큰 절약을 위해 analysis_results 테이블만 사용하고, 샘플 데이터 로드 비활성화
+            # 토큰 절약을 위해 sample_rows 포함 안 함 + 사용할 테이블 제한 (빈 테이블 제외)
             self.db = SQLDatabase.from_uri(
-                self.db_uri,
-                include_tables=['analysis_results'],
-                sample_rows_in_table_info=0
+                self.db_url, 
+                sample_rows_in_table_info=0,
+                include_tables=['analysis_results', 'comments'] 
             )
-            logger.info(f"✅ Connected to Database: {db_name} (Table: analysis_results only)")
+            logger.info(f"✅ Connected to Database: {db_name} (Restricted tables)")
         except Exception as e:
-            logger.error(f"❌ Failed to connect to DB: {e}")
+            logger.error(f"❌ Database Connection Failed: {e}")
             self.db = None
 
-        # LLM 초기화 (Groq 우선, 없으면 Ollama 폴백)
+        # 2. LLM 초기화
         if api_key:
             logger.info(f"Initializing Groq LLM: {model_name}")
-            self.llm = ChatGroq(
-                temperature=0, 
-                model_name=model_name, 
-                api_key=api_key
-            )
+            self.llm = ChatGroq(temperature=0, model_name=model_name, api_key=api_key)
         else:
-            fallback_model = "gemma2:2b"
-            logger.warning(f"⚠️ No API Key provided. Falling back to local Ollama ({fallback_model})")
-            self.llm = ChatOllama(model=fallback_model, temperature=0)
-        
-        # 체인 초기화
-        self.chain = self._create_chain() if self.db else None
-        
-        # 대화 기록 (In-Memory)
-        self.chat_history = []
+            logger.warning("⚠️ No Groq API Key found!")
+            self.llm = None
 
-    def _create_chain(self):
+        # 3. 체인 초기화
+        if self.db and self.llm:
+            self.chain = self._create_chain()
+
+    def _create_chain(self, llm=None):
         """Text-to-SQL 체인 생성"""
         
-    # 1. SQL 생성 체인
+        target_llm = llm if llm else self.llm
+        if not target_llm: return None
+
         def clean_sql(text):
-            # Markdown 코드 블록 제거
             cleaned = text.replace("```sql", "").replace("```", "").strip()
-            # "Here is the SQL" 같은 설명구 제거 (간단히 SQL 키워드로 시작하는지 확인)
             if not cleaned.upper().startswith("SELECT"):
-                 # SELECT가 맨 앞에 오도록 파싱 시도
                  import re
                  match = re.search(r"SELECT.*", cleaned, re.IGNORECASE | re.DOTALL)
-                 if match:
-                     cleaned = match.group(0)
+                 if match: cleaned = match.group(0)
             return cleaned
 
-        # 1. SQL 생성 프롬프트 정의
         sql_prompt = PromptTemplate.from_template(
             """You are a MySQL expert. Given an input question and conversation history, create a syntactically correct MySQL query to run.
-            Unless the user specifies in his question a specific number of examples to obtain, query for at most {top_k} results using the LIMIT clause.
-            You can order the results to return the most informative data in the database.
-            Never query for all columns from a specific table, only ask for a few relevant columns given the question.
-            Pay attention to use only the column names you can see in the table description. Be careful to not query for columns that do not exist.
-            Pay attention to which column is in which table. Also, qualify column names with the table name when needed.
             
-            IMPORTANT: Return ONLY the SQL query. No explanations, no markdown backticks, no "Here is the query". Just the raw SQL starting with SELECT.
+            GUIDELINES:
+            1. **Select Informative Columns**: SELECT `comment_text`, `toxicity_score`, `category`, `analyzed_at`, `author`.
+            2. **Content Search vs Author Search**:
+               - If the user asks for comments **"about"** someone, **"containing"** a word, or **"mentioning"** specific content (e.g., "차은우가 나오는", "욕설이 포함된"), query `comment_text LIKE '%keyword%'`.
+               - ONLY query `author` if the user explicitly says **"written by"**, **"author is"**, or **"created by"** (e.g., "차은우가 쓴", "작성자가 누구").
+            3. **Strict Limit**: **ALWAYS** end your query with `LIMIT {top_k}`. Do NOT return more than {top_k} rows to prevent token errors.
+            4. **Worst/Toxic Cases**: If asking for "worst", "bad", or "toxic", `ORDER BY toxicity_score DESC` and `LIMIT {top_k}`.
+            5. **Date/Time**: If asked about "recent", filter by `analyzed_at`.
+            
+            IMPORTANT: Return ONLY the SQL query.
             
             Only use the following tables:
             {table_info}
@@ -95,132 +96,275 @@ class RAGService:
             """
         )
 
-        # 2. SQL 생성 체인 (Prompt 주입)
-        write_query = create_sql_query_chain(self.llm, self.db, prompt=sql_prompt)
-        
-        # 2. SQL 실행 툴
-        execute_query = QuerySQLDataBaseTool(db=self.db)
-        
-        # 3. 답변 생성 프롬프트
-        answer_prompt = PromptTemplate.from_template(
-            """Given the following user question, corresponding SQL query, SQL result, and conversation history, answer the user question.
-            
-            IMPORTANT: Use only the provided tables: {table_info}. Do NOT hallucinate tables like 'blocked_words'.
-             If the user asks for 'most blocked words', query the 'analysis_results' table and look at 'detected_keywords' or 'category'.
-
-            FORMATTING RULES:
-            - Answer in **Korean** (한국어).
-            - Use **Markdown** to make the answer clean (e.g., bullet points, bold text).
-            - Be concise and friendly.
-            - Do not show the raw SQL query unless explicitly asked.
-            - If the result is a list, format it as a bulleted list.
-            - **Text Refinement**: If the user asks to "refine", "explain", or "translate" the comments (especially if they contain slang, profanity, or are hard to understand), please **paraphrase/summarize** them into standard, polite Korean so the meaning is clear. Provide the context or meaning behind the slang if necessary.
-
-Conversation History:
-{history}
-
-Question: {question}
-SQL Query: {query}
-SQL Result: {result}
-Answer: """
-        )
-        
-        # 결과 제한 (토큰 절약)
-        def limit_result_size(result):
-             s_result = str(result)
-             if len(s_result) > 2000:
-                 return s_result[:2000] + "... (truncated)"
-             return s_result
-
-        # 4. 전체 파이프라인 구성
-        chain = (
-            RunnablePassthrough.assign(query=write_query | clean_sql).assign(
-                result=itemgetter("query") | execute_query | limit_result_size
+        # 2. SQL 생성 체인 (Prompt 주입) - 수동 구성 (history, top_k 전달)
+        write_query = (
+            RunnablePassthrough.assign(
+                table_info=lambda x: self.db.get_table_info(),
+                history=itemgetter("history"),
+                top_k=itemgetter("top_k")
             )
-            | answer_prompt.partial(table_info=self.db.get_table_info())
-            | self.llm
+            | sql_prompt
+            | target_llm
             | StrOutputParser()
         )
+        execute_query = QuerySQLDataBaseTool(db=self.db)
         
+        answer_prompt = PromptTemplate.from_template(
+            """Given the following user question, corresponding SQL query, and SQL result, answer the user question in Korean.
+            
+            Format your response as a structured report using Markdown:
+            
+            ## 📊 분석 보고서: [Title based on Question]
+            
+            ### 1. 요약 (Summary)
+            - Briefly summarize key findings from the data.
+            
+            ### 2. 상세 분석 (Detailed Analysis)
+            - Present the data in a **Markdown table** format for better readability:
+            
+            | 댓글 내용 | 작성자 | 위험도 | 카테고리 | 분석시간 |
+            |----------|--------|--------|----------|----------|
+            | (comment_text) | (author) | (toxicity_score) | (category) | (analyzed_at) |
+            
+            - After the table, provide additional insights or highlight critical findings (e.g., high toxicity scores).
+            
+            ### 3. 결론 (Conclusion)
+            - Provide a brief conclusion or recommendation.
+            
+            ---
+            
+            **Guidelines:**
+            - IF THE SQL RESULT IS EMPTY (e.g., [] or None), DO NOT generate the report. Just say "해당 조건에 맞는 데이터가 없습니다."
+            - IMPORTANT: Do NOT assume the current date. Use the data provided in SQL Result.
+            
+            Question: {question}
+            SQL Query: {query}
+            SQL Result: {result}
+            Answer: """
+        )
+        
+        # 디버깅용 로그 체인 + 결과 캡처
+        def log_step(state):
+            logger.info(f"🔍 Generated SQL: {state.get('query')}")
+            logger.info(f"🔍 SQL Result: {state.get('result')}")
+            # 결과를 인스턴스 변수에 저장 (CSV export용)
+            self.last_sql_result = state.get('result')
+            return state
+
+        chain = (
+            RunnablePassthrough.assign(query=write_query | clean_sql).assign(
+                result=itemgetter("query") | execute_query
+            )
+            | log_step # 로그 출력 + 결과 캡처
+            | answer_prompt.partial(table_info=self.db.get_table_info())
+            | target_llm
+            | StrOutputParser()
+        )
         return chain
 
-    def load_documents(self, directory_path: str = None):
-        """DB 연결 상태 확인"""
-        if not self.db:
-            return {"status": "error", "message": "Database not connected."}
-            
-        try:
-            tables = self.db.get_usable_table_names()
-            return {
-                "status": "success", 
-                "message": f"Connected to DB. Configured tables: {tables}",
-                "tables": tables
-            }
-        except Exception as e:
-             return {"status": "error", "message": f"DB Connection failed: {str(e)}"}
-
-    def clear_vector_store(self):
-        """기능 없음 (DB 모드)"""
-        return True
-
-    def clear_history(self):
-        """대화 기록 초기화"""
-        self.chat_history = []
-        logger.info("🗑️ Chat history cleared.")
-        return True
-
     def query(self, question: str) -> dict:
-        """질의응답 수행 (Text-to-SQL + Memory)"""
+        """Text-to-SQL 질의응답 (Retry & Fallback)"""
         if not self.chain:
-            return {"answer": "데이터베이스에 연결되지 않았습니다.", "sources": []}
+            return {"answer": "서비스가 초기화되지 않았습니다 (DB 또는 LLM 연결 실패).", "sources": [], "data": []}
             
+        # 히스토리 포맷팅 (토큰 절약을 위해 3개로 축소)
+        history_str = ""
+        if self.chat_history:
+            history_str = "\n".join([f"User: {q}\nAI: {a}" for q, a in self.chat_history[-3:]]) 
+
+        inputs = {
+            "question": question, 
+            "input": question, 
+            "top_k": 10,
+            "history": history_str
+        }
+
         try:
-            logger.info(f"SQL Querying: {question}")
-            
-            # 히스토리 포맷팅
-            history_str = ""
-            if self.chat_history:
-                history_str = "\n".join([f"User: {q}\nAI: {a}" for q, a in self.chat_history[-5:]]) # 최근 5개만 유지
-            
-            # 체인 실행 (history 주입)
-            # input: SQL 생성용, question: 답변 생성용
-            response = self.chain.invoke({
-                "question": question, 
-                "input": question, 
-                "top_k": 5,
-                "history": history_str
-            })
-            
+            response = self.chain.invoke(inputs)
             # 히스토리 저장
             self.chat_history.append((question, response))
             
+            # 원본 SQL 결과를 구조화된 데이터로 변환
+            raw_data = self._parse_sql_result_to_dict(self.last_sql_result)
+            
             return {
-                "answer": response,
-                "sources": ["Database (MariaDB)"]
+                "answer": response, 
+                "sources": ["Database (MariaDB)"],
+                "data": raw_data  # CSV export용 원본 데이터
             }
         except Exception as e:
             logger.error(f"SQL Chain failed: {e}")
+            error_msg = str(e)
             
-            # Rate Limit (429) Retry Logic
-            if "429" in str(e) or "rate_limit_exceeded" in str(e):
-                logger.warning("⚠️ Rate limit reached. Retrying in 5 seconds...")
-                import time
-                time.sleep(5)
-                try:
-                    # 재시도
-                    response = self.chain.invoke({
-                        "question": question, 
-                        "input": question, 
-                        "top_k": 5,
-                        "history": history_str
-                    })
-                    self.chat_history.append((question, response))
-                    return {
-                        "answer": response,
-                        "sources": ["Database (MariaDB) - Retrieved after retry"]
-                    }
-                except Exception as retry_e:
-                     logger.error(f"Retry failed: {retry_e}")
-                     return {"answer": "죄송합니다. 현재 이용량이 많아 답변을 생성할 수 없습니다. 잠시 후 다시 시도해주세요. (Rate Limit Exceeded)", "error": str(retry_e)}
+            # Rate Limit (429) or Token Limit (413) Handling
+            if "429" in error_msg or "413" in error_msg or "rate_limit_exceeded" in error_msg or "history" in error_msg:
+                logger.warning("⚠️ Rate/Token limit reached. Trying to fallback...")
+                
+                # 413(Token Limit)은 재시도해도 실패하므로 즉시 Fallback
+                # 그 외(429)는 잠시 대기 후 재시도
+                if "413" not in error_msg and "too large" not in error_msg:
+                    import time
+                    time.sleep(5) 
+                    try:
+                        response = self.chain.invoke(inputs)
+                        self.chat_history.append((question, response))
+                        raw_data = self._parse_sql_result_to_dict(self.last_sql_result)
+                        return {
+                            "answer": response, 
+                            "sources": ["Database (MariaDB) - Retry"],
+                            "data": raw_data
+                        }
+                    except Exception:
+                        pass # Retry failed
 
-            return {"answer": f"오류가 발생했습니다: {str(e)}", "error": str(e)}
+                # Local Ollama Fallback
+                try:
+                    logger.info("🔄 Switching to Local Ollama Fallback...")
+                    fallback_llm = ChatOllama(model="llama3", temperature=0)
+                    fallback_chain = self._create_chain(llm=fallback_llm)
+                    
+                    if fallback_chain:
+                        # Fallback 실행
+                        response = fallback_chain.invoke(inputs)
+                        raw_data = self._parse_sql_result_to_dict(self.last_sql_result)
+                        return {
+                            "answer": response + "\n\n(ℹ️ 트래픽/토큰 한도 초과로 로컬 AI가 생성한 답변입니다.)", 
+                            "sources": ["Local Ollama"],
+                            "data": raw_data
+                        }
+                except Exception as fallback_e:
+                    logger.error(f"Fallback failed: {fallback_e}")
+                    error_msg += f" | Fallback Error: {str(fallback_e)}"
+
+            return {"answer": f"죄송합니다. 현재 이용량이 많거나 질문 내용이 너무 길어 답변을 생성할 수 없습니다. \n(상세 오류: {error_msg})", "sources": [], "data": []}
+    
+    def _parse_sql_result_to_dict(self, sql_result_str: str) -> list:
+        """SQL 결과 문자열을 딕셔너리 리스트로 변환"""
+        if not sql_result_str or sql_result_str == "[]":
+            return []
+        
+        try:
+            import ast
+            try:
+                data = ast.literal_eval(sql_result_str)
+            except:
+                data = eval(sql_result_str)
+            
+            # 튜플 리스트를 딕셔너리 리스트로 변환
+            result_list = []
+            for row in data:
+                result_list.append({
+                    "댓글내용": str(row[0]) if len(row) > 0 and row[0] else "",
+                    "작성자": str(row[4]) if len(row) > 4 and row[4] else "",  # author는 5번째
+                    "위험도": float(row[1]) if len(row) > 1 and row[1] else 0.0,  # toxicity_score는 2번째
+                    "카테고리": str(row[2]) if len(row) > 2 and row[2] else "",  # category는 3번째
+                    "분석시간": str(row[3]) if len(row) > 3 and row[3] else ""  # analyzed_at는 4번째
+                })
+            
+            return result_list
+        except Exception as e:
+            logger.error(f"Failed to parse SQL result: {e}")
+            return []
+
+    def load_documents(self, directory_path: str = None):
+        return {"status": "success", "message": "DB Mode active (No documents loaded)"}
+
+
+    def clear_history(self):
+        self.chat_history = []
+        return True
+
+    def get_query_results(self, question: str):
+        """질문에 대한 SQL 결과를 JSON으로 반환 (프론트엔드에서 CSV 변환용)"""
+        import re
+        from langchain_core.prompts import PromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+        from langchain_core.runnables import RunnablePassthrough
+        from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool
+        
+        try:
+            # Export용 초경량 프롬프트 (토큰 제한 회피)
+            sql_prompt = PromptTemplate.from_template(
+                """Create a MySQL query for: {input}
+                
+                SELECT comment_text, author, toxicity_score, category, analyzed_at
+                FROM analysis_results
+                WHERE [your condition based on question]
+                LIMIT 10;
+                
+                Rules:
+                - For content search: comment_text LIKE '%keyword%'
+                - For author search: author LIKE '%name%'
+                - Always use these 5 columns in order
+                
+                SQL:"""
+            )
+            
+            # SQL 생성 체인 (table_info 제거로 토큰 절약)
+            write_query = (
+                RunnablePassthrough()
+                | sql_prompt
+                | self.llm
+                | StrOutputParser()
+            )
+            
+            execute_query = QuerySQLDataBaseTool(db=self.db)
+            
+            # SQL 생성
+            inputs = {"input": question}
+            sql = write_query.invoke(inputs)
+            
+            # SQL 정리: 마크다운 제거
+            sql = sql.replace("```sql", "").replace("```", "").strip()
+            
+            # SELECT로 시작하지 않으면 SELECT 찾기
+            if not sql.upper().startswith("SELECT"):
+                match = re.search(r"SELECT.*", sql, re.IGNORECASE | re.DOTALL)
+                if match:
+                    sql = match.group(0)
+            
+            # 세미콜론 이후 설명 텍스트 제거 (단, 첫 번째 세미콜론만)
+            if ';' in sql:
+                # 첫 번째 세미콜론 위치 찾기
+                semicolon_pos = sql.find(';')
+                # 세미콜론 이후에 SQL 키워드가 없으면 잘라내기
+                after_semicolon = sql[semicolon_pos+1:].strip()
+                if after_semicolon and not any(keyword in after_semicolon.upper()[:50] for keyword in ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE']):
+                    sql = sql[:semicolon_pos+1]
+            
+            logger.info(f"🔍 Generated SQL for export: {sql}")
+            
+            # SQL 실행
+            result = execute_query.invoke(sql)
+            logger.info(f"🔍 SQL Result (first 200 chars): {str(result)[:200]}...")
+            
+            if not result or result == "[]":
+                logger.warning("Export query returned empty result")
+                return []
+            
+            # 결과 파싱
+            import ast
+            try:
+                data = ast.literal_eval(result)
+            except:
+                data = eval(result)
+            
+            # 딕셔너리 리스트로 변환
+            result_list = []
+            for row in data:
+                result_list.append({
+                    "댓글내용": str(row[0]) if row[0] else "",
+                    "작성자": str(row[1]) if row[1] else "",
+                    "위험도": float(row[2]) if row[2] else 0.0,
+                    "카테고리": str(row[3]) if row[3] else "",
+                    "분석시간": str(row[4]) if row[4] else ""
+                })
+            
+            logger.info(f"✅ Export: Converted {len(result_list)} rows to JSON")
+            return result_list
+            
+        except Exception as e:
+            logger.error(f"Get query results failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise

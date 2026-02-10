@@ -54,7 +54,6 @@ const Textarea = (props) => <textarea className="flex min-h-[80px] w-full rounde
 export default function DashboardV2() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [showRagChat, setShowRagChat] = useState(false); // ✨ RAG 채팅 상태 추가
 
   // ✅ /notices/:noticeId 패턴 체크
   const noticeDetailMatch = pathname.match(/^\/notices\/(\d+)$/);
@@ -121,31 +120,8 @@ export default function DashboardV2() {
         </div>
       </main>
 
-      {/* ✨ RAG Chat Floating Button */}
-      {/* ✨ RAG Chat Floating Button */}
-      <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000 }}>
-        <Button
-          onClick={() => setShowRagChat(!showRagChat)}
-          className="h-14 w-14 rounded-full shadow-2xl bg-blue-600 hover:bg-blue-500 text-white border-4 border-slate-900"
-        >
-          {showRagChat ? <X size={24} /> : <MessageCircle size={28} />}
-        </Button>
-      </div>
-
-      {/* ✨ RAG Chat Panel */}
-      {showRagChat && (
-        <div style={{
-          position: 'fixed',
-          bottom: '90px',
-          right: '24px',
-          width: '400px',
-          maxWidth: 'calc(100vw - 48px)',
-          zIndex: 1000,
-          boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
-        }} className="animate-in slide-in-from-bottom-10 fade-in duration-300">
-          <RagChat />
-        </div>
-      )}
+      {/* ✨ RAG Chat Component (has its own floating button) */}
+      <RagChat />
     </div>
   );
 }
@@ -1892,228 +1868,226 @@ function CommentManagementView() {
                 </button>
               ))}
             </div>
-          </button>
-                ))}
-        </div>
 
-        <div className="px-3 py-1 rounded-full bg-slate-800 text-[10px] font-bold text-slate-400 border border-slate-700">
-          현재 페이지 {comments.length}개
-        </div>
 
-        <button onClick={() => loadComments()} className="h-8 w-8 flex items-center justify-center p-0 rounded-full hover:bg-slate-800 text-slate-400 transition-all">
-          <RotateCcw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
+            <div className="px-3 py-1 rounded-full bg-slate-800 text-[10px] font-bold text-slate-400 border border-slate-700">
+              현재 페이지 {comments.length}개
+            </div>
 
-        {/* Bulk Actions */}
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-800 ml-2">
-          {selectedIds.length > 0 && (
-            <button
-              onClick={handleDeleteSelected}
-              className="h-8 px-3 rounded-lg text-[10px] font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all animate-in fade-in"
-            >
-              선택항목 삭제 ({selectedIds.length})
+            <button onClick={() => loadComments()} className="h-8 w-8 flex items-center justify-center p-0 rounded-full hover:bg-slate-800 text-slate-400 transition-all">
+              <RotateCcw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
-          )}
-          {comments.length > 0 && (
-            <button
-              onClick={handleDeleteAll}
-              className="h-8 px-3 rounded-lg text-[10px] font-bold border border-red-900/30 text-red-400 hover:bg-red-950/30 hover:text-red-300 transition-all"
-            >
-              전체삭제
-            </button>
-          )}
-        </div>
-    </div>
+
+            {/* Bulk Actions */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-800 ml-2">
+              {selectedIds.length > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  className="h-8 px-3 rounded-lg text-[10px] font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all animate-in fade-in"
+                >
+                  선택항목 삭제 ({selectedIds.length})
+                </button>
+              )}
+              {comments.length > 0 && (
+                <button
+                  onClick={handleDeleteAll}
+                  className="h-8 px-3 rounded-lg text-[10px] font-bold border border-red-900/30 text-red-400 hover:bg-red-950/30 hover:text-red-300 transition-all"
+                >
+                  전체삭제
+                </button>
+              )}
+            </div>
+          </div>
         </CardHeader >
-    <CardContent className="p-0">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-y border-slate-800 bg-slate-900/40">
-              <th className="p-4 py-3 w-[40px] text-center">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-offset-slate-900"
-                  checked={comments.length > 0 && selectedIds.length === comments.length}
-                  onChange={toggleSelectAll}
-                />
-              </th>
-              <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[15%]">작성자</th>
-              <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[50%]">작성 댓글</th>
-              <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[15%] text-center">분류 결과</th>
-              <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[10%] text-center">작성일</th>
-              <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[10%] text-right">설정</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/50">
-            {loading ? (
-              <tr><td colSpan="6" className="p-20 text-center text-slate-600 text-sm animate-pulse tracking-widest">분석중...</td></tr>
-            ) : comments.length > 0 ? comments.map(comment => (
-              <tr key={comment.commentId} className={`transition-all group ${selectedIds.includes(comment.commentId) ? 'bg-blue-900/10' : 'hover:bg-blue-500/5'}`}>
-                <td className="p-4 align-top text-center">
-                  <input
-                    type="checkbox"
-                    className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-offset-slate-900"
-                    checked={selectedIds.includes(comment.commentId)}
-                    onChange={() => toggleSelect(comment.commentId)}
-                  />
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-y border-slate-800 bg-slate-900/40">
+                  <th className="p-4 py-3 w-[40px] text-center">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-offset-slate-900"
+                      checked={comments.length > 0 && selectedIds.length === comments.length}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[15%]">작성자</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[50%]">작성 댓글</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[15%] text-center">분류 결과</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[10%] text-center">작성일</th>
+                  <th className="p-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-tighter w-[10%] text-right">설정</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {loading ? (
+                  <tr><td colSpan="6" className="p-20 text-center text-slate-600 text-sm animate-pulse tracking-widest">분석중...</td></tr>
+                ) : comments.length > 0 ? comments.map(comment => (
+                  <tr key={comment.commentId} className={`transition-all group ${selectedIds.includes(comment.commentId) ? 'bg-blue-900/10' : 'hover:bg-blue-500/5'}`}>
+                    <td className="p-4 align-top text-center">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-offset-slate-900"
+                        checked={selectedIds.includes(comment.commentId)}
+                        onChange={() => toggleSelect(comment.commentId)}
+                      />
 
-                </td>
-                <td className="p-4 align-top">
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
-                        {comment.authorIdentifier}
-                      </span>
-                      <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
-                        YOUTUBE_USER
-                      </span>
-                    </div>
-                    {/* ID 복사 버튼 - 오른쪽에 배치 */}
-                    <button
-                      onClick={() => handleCopyId(comment.authorIdentifier)}
-                      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
-                      title="ID 복사"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                </td>
-                <td className="p-4 align-top">
-                  <p className="text-sm text-slate-300 leading-relaxed line-clamp-2 max-w-xl group-hover:line-clamp-none transition-all duration-300">
-                    {comment.commentText}
-                  </p>
-                </td>
-                <td className="p-4 align-top text-center">
-                  {!comment.isAnalyzed ? (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase animate-pulse">
-                      <RefreshCw size={10} className="animate-spin" /> 분석중...
-                    </div>
-                  ) : comment.isMalicious ? (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black uppercase">
-                      <AlertTriangle size={10} /> 악성
-                    </div>
-                  ) : (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase">
-                      <CheckCircle size={10} /> 안전
-                    </div>
-                  )}
-                </td>
-                <td className="p-4 align-top text-center">
-                  <div className="text-[11px] text-slate-400 font-medium">
-                    {new Date(comment.commentedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
-                  </div>
-                </td>
-                <td className="p-4 align-top text-right">
-                  <div className="flex flex-row items-center justify-end gap-1">
-                    {/* 블랙리스트 추가 버튼 (악성 댓글만 표시) */}
-                    {comment.isMalicious && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleAddToBlacklist(comment)}
-                        className="text-slate-400 hover:text-orange-400 opacity-0 group-hover:opacity-100"
-                        title="블랙리스트 추가"
-                      >
-                        <UserX size={16} />
-                      </Button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(comment.commentId)}
-                      className="p-2 rounded-lg text-slate-600 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
-              <tr><td colSpan="6" className="p-20 text-center text-slate-600 text-sm italic tracking-wide">No data analyzed in the selected period.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </CardContent>
+                    </td>
+                    <td className="p-4 align-top">
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-200 text-sm truncate max-w-[120px]">
+                            {comment.authorIdentifier}
+                          </span>
+                          <span className="text-[10px] text-slate-600 font-mono tracking-tighter">
+                            YOUTUBE_USER
+                          </span>
+                        </div>
+                        {/* ID 복사 버튼 - 오른쪽에 배치 */}
+                        <button
+                          onClick={() => handleCopyId(comment.authorIdentifier)}
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
+                          title="ID 복사"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="p-4 align-top">
+                      <p className="text-sm text-slate-300 leading-relaxed line-clamp-2 max-w-xl group-hover:line-clamp-none transition-all duration-300">
+                        {comment.commentText}
+                      </p>
+                    </td>
+                    <td className="p-4 align-top text-center">
+                      {!comment.isAnalyzed ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase animate-pulse">
+                          <RefreshCw size={10} className="animate-spin" /> 분석중...
+                        </div>
+                      ) : comment.isMalicious ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black uppercase">
+                          <AlertTriangle size={10} /> 악성
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase">
+                          <CheckCircle size={10} /> 안전
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-4 align-top text-center">
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        {new Date(comment.commentedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                      </div>
+                    </td>
+                    <td className="p-4 align-top text-right">
+                      <div className="flex flex-row items-center justify-end gap-1">
+                        {/* 블랙리스트 추가 버튼 (악성 댓글만 표시) */}
+                        {comment.isMalicious && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAddToBlacklist(comment)}
+                            className="text-slate-400 hover:text-orange-400 opacity-0 group-hover:opacity-100"
+                            title="블랙리스트 추가"
+                          >
+                            <UserX size={16} />
+                          </Button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(comment.commentId)}
+                          className="p-2 rounded-lg text-slate-600 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="6" className="p-20 text-center text-slate-600 text-sm italic tracking-wide">No data analyzed in the selected period.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
       </Card >
 
-    {/* Pagination UI */ }
-  {
-    totalPages > 1 && (
-      <div className="flex items-center justify-between px-4 py-3 mt-6 bg-slate-900/40 border border-slate-800 rounded-xl">
-        <div className="flex flex-1 justify-between sm:hidden">
-          <Button
-            variant="outline"
-            onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-            disabled={currentPage === 0}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
-            disabled={currentPage === totalPages - 1}
-            className="ml-3"
-          >
-            Next
-          </Button>
-        </div>
-        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs text-slate-400">
-              전체 <span className="font-bold text-slate-200">{totalElements}</span>개 중{' '}
-              <span className="font-bold text-slate-200">{currentPage * pageSize + 1}</span>
-              {' - '}
-              <span className="font-bold text-slate-200">
-                {Math.min((currentPage + 1) * pageSize, totalElements)}
-              </span>
-            </p>
-          </div>
-          <div>
-            <nav className="isolate inline-flex -space-x-px rounded-lg shadow-sm" aria-label="Pagination">
-              <button
+      {/* Pagination UI */}
+      {
+        totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 mt-6 bg-slate-900/40 border border-slate-800 rounded-xl">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <Button
+                variant="outline"
                 onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
                 disabled={currentPage === 0}
-                className="relative inline-flex items-center rounded-l-lg px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
               >
-                <span className="sr-only">Previous</span>
-                <RotateCcw size={16} className="rotate-180" />
-              </button>
-
-              {[...Array(totalPages)].map((_, i) => {
-                if (i === 0 || i === totalPages - 1 || (i >= currentPage - 2 && i <= currentPage + 2)) {
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => setCurrentPage(i)}
-                      className={`relative inline-flex items-center px-4 py-2 text-xs font-bold transition-all ${currentPage === i
-                        ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                        : 'text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0'
-                        }`}
-                    >
-                      {i + 1}
-                    </button>
-                  )
-                }
-                if (i === 1 || i === totalPages - 2) {
-                  return <span key={i} className="relative inline-flex items-center px-4 py-2 text-xs font-bold text-slate-600 ring-1 ring-inset ring-slate-800 focus:outline-none">...</span>
-                }
-                return null;
-              })}
-
-              <button
+                Previous
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
                 disabled={currentPage === totalPages - 1}
-                className="relative inline-flex items-center rounded-r-lg px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                className="ml-3"
               >
-                <span className="sr-only">Next</span>
-                <RotateCcw size={16} />
-              </button>
-            </nav>
+                Next
+              </Button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs text-slate-400">
+                  전체 <span className="font-bold text-slate-200">{totalElements}</span>개 중{' '}
+                  <span className="font-bold text-slate-200">{currentPage * pageSize + 1}</span>
+                  {' - '}
+                  <span className="font-bold text-slate-200">
+                    {Math.min((currentPage + 1) * pageSize, totalElements)}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-lg shadow-sm" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                    disabled={currentPage === 0}
+                    className="relative inline-flex items-center rounded-l-lg px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <RotateCcw size={16} className="rotate-180" />
+                  </button>
+
+                  {[...Array(totalPages)].map((_, i) => {
+                    if (i === 0 || i === totalPages - 1 || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(i)}
+                          className={`relative inline-flex items-center px-4 py-2 text-xs font-bold transition-all ${currentPage === i
+                            ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                            : 'text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0'
+                            }`}
+                        >
+                          {i + 1}
+                        </button>
+                      )
+                    }
+                    if (i === 1 || i === totalPages - 2) {
+                      return <span key={i} className="relative inline-flex items-center px-4 py-2 text-xs font-bold text-slate-600 ring-1 ring-inset ring-slate-800 focus:outline-none">...</span>
+                    }
+                    return null;
+                  })}
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                    disabled={currentPage === totalPages - 1}
+                    className="relative inline-flex items-center rounded-r-lg px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-800 hover:bg-slate-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                  >
+                    <span className="sr-only">Next</span>
+                    <RotateCcw size={16} />
+                  </button>
+                </nav>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    )
-  }
+        )
+      }
     </div >
   );
 }

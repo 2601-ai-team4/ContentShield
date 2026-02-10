@@ -6,6 +6,7 @@ Llama-Guard-4-12b (필터링) + Llama-3.1-8b-instant (분석)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Union
 import logging
@@ -16,6 +17,8 @@ import json
 import re
 import asyncio
 from dotenv import load_dotenv
+import pandas as pd
+from io import StringIO
 from rag_service import RAGService # ✨ RAG 서비스 추가
 from langsmith import traceable # ✨ LangSmith Tracing 추가
 
@@ -33,14 +36,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# RAG 서비스 초기화 (전역)
-try:
-    # Text-to-SQL 모드 (Groq Llama 3.1 8b 사용 - 안정)
-    rag_service = RAGService(model_name="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"))
-    logger.info("✅ RAG Service (Text-to-SQL) initialized with Groq Llama 3.1 8b")
-except Exception as e:
-    logger.error(f"❌ Failed to initialize RAG Service: {e}")
-    rag_service = None
+# RAG 서비스 초기화 (전역 변수 선언)
+rag_service = None
+
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -48,6 +46,18 @@ app = FastAPI(
     description="Llama Guard 4 + Llama 3.1 듀얼 모델 악성 콘텐츠 탐지 + AI 작성 보조",
     version="3.1.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    global rag_service
+    try:
+        # Text-to-SQL 모드 (Groq Llama 3.1 8b 사용 - 안정)
+        rag_service = RAGService(model_name="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"))
+        logger.info("✅ RAG Service (Text-to-SQL) initialized with Groq Llama 3.1 8b")
+        # rag_service = None
+        # logger.info("⚠️ RAG Service DISABLED due to startup crash")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize RAG Service: {e}")
 
 # CORS 설정
 app.add_middleware(
@@ -1794,8 +1804,8 @@ async def models_info():
 
 # ==================== 🆕 RAG Endpoints (Restored) ====================
 
-# RAG 서비스 초기화
-rag_service = RAGService(api_key=os.getenv("GROQ_API_KEY"))
+# RAG 서비스 초기화 (삭제 - 전역 변수 rag_service 사용)
+# rag_service = RAGService(api_key=os.getenv("GROQ_API_KEY"))
 
 class RagQueryRequest(BaseModel):
     question: str
@@ -1805,8 +1815,35 @@ class RagLoadRequest(BaseModel):
 
 @app.post("/rag/query")
 async def rag_query(request: RagQueryRequest):
-    """RAG 질의응답"""
-    return rag_service.query(request.question)
+    """RAG 질의응답 (Text-to-SQL)"""
+    global rag_service
+    if not rag_service:
+         raise HTTPException(status_code=503, detail="RAG Service is not initialized")
+    
+    try:
+        return rag_service.query(request.question)
+    except Exception as e:
+        logger.error(f"RAG Query Failed: {e}")
+        import traceback
+        return {"answer": f"오류 발생: {str(e)}", "sources": [], "debug": traceback.format_exc()}
+
+@app.post("/rag/export")
+async def rag_export(request: RagQueryRequest):
+    """RAG 질의응답 결과를 JSON으로 반환 (프론트엔드에서 CSV 변환)"""
+    global rag_service
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG Service is not initialized")
+    
+    try:
+        # rag_service에서 데이터 가져오기
+        data = rag_service.get_query_results(request.question)
+        return {"data": data}
+        
+    except Exception as e:
+        logger.error(f"RAG Export Failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/rag/load")
 async def rag_load(request: RagLoadRequest):

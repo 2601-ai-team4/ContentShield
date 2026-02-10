@@ -13,22 +13,22 @@ export default defineConfig({
     proxy: {
       // ✅ AI Writing Assistant (FastAPI 마이크로서비스)
       '/api/assistant': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_TARGET_AI || 'http://backend-fastapi:8000',
         changeOrigin: true,
-        rewrite: (path) => path  // /api/assistant/* → http://localhost:8000/api/assistant/*
+        rewrite: (path) => path  // /api/assistant/* → http://backend-fastapi:8000/api/assistant/*
       },
       // ✅ AI Content Analysis (FastAPI)
       '/analyze': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_TARGET_AI || 'http://backend-fastapi:8000',
         changeOrigin: true
       },
       '/crawl': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_TARGET_AI || 'http://backend-fastapi:8000',
         changeOrigin: true
       },
       // ✅ Spring Boot API (나머지)
       '/api': {
-        target: 'http://localhost:8081',
+        target: process.env.VITE_API_TARGET_BACKEND || 'http://backend-springboot:8081',
         changeOrigin: true
       }
     }

@@ -5,12 +5,10 @@ pydantic
 python-dotenv
 youtube-comment-downloader
 langchain-huggingface
-langchain-chroma
 langchain-experimental
 pymysql
-sqlalchemymunity
-faiss-cpu
-sentence-transformers
+sqlalchemy
+langchain-community
 langchain-text-splitters
 ollama
 langchain-groq

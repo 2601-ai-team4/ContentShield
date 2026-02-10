@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  mariadb:
+    image: mariadb:10.6
+    container_name: contentshield-db
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: sns_content_analyzer
+    ports:
+      - "3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-springboot:
+    build: ./backend-springboot
+    container_name: contentshield-backend
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: sns_content_analyzer
+      DB_USER: root
+      DB_PASSWORD: 1234
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend-fastapi:
+    build: ./backend-fastapi
+    container_name: contentshield-ai
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend-fastapi/.env
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: 1234
+      DB_NAME: sns_content_analyzer
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - app-network
+    # Hot-reload mapping
+    volumes:
+      - ./backend-fastapi:/app
+
+  frontend-react:
+    build: ./frontend-react
+    container_name: contentshield-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # Use service names for internal networking if using nginx,
+      # but for client-side React, we often need localhost or reverse proxy.
+      # Here we assume the client browser accesses localhost.
+      VITE_API_BASE_URL: /api
+    depends_on:
+      - backend-springboot
+      - backend-fastapi
+    networks:
+      - app-network
+    # Hot-reload mapping
+    volumes:
+      - ./frontend-react/src:/app/src
+      - ./frontend-react/public:/app/public
+      # Prevent overwriting node_modules
+      - /app/node_modules
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mariadb_data:
