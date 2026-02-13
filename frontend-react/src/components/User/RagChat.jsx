@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ragService } from '../../services/ragService';
+import { useAuthStore } from '../../stores/authStore'; // 🆕 추가
 import { Button, Input, List, Avatar, Spin, message, Card } from 'antd';
 import { SendOutlined, SyncOutlined, DatabaseOutlined, UploadOutlined, CloseOutlined, MessageOutlined, DownloadOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
@@ -135,6 +136,7 @@ const RagChat = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isDBLoading, setIsDBLoading] = useState(false);
     const messagesEndRef = useRef(null);
+    const { user } = useAuthStore(); // 🆕 사용자 정보 가져오기
 
     // 자동 스크롤
     useEffect(() => {
@@ -170,7 +172,8 @@ const RagChat = () => {
         setIsLoading(true);
 
         try {
-            const result = await ragService.chat(userMsg.content);
+            // 사용자 ID와 함께 질문 전송
+            const result = await ragService.chat(userMsg.content, user?.id);
 
             const aiResponse = {
                 role: 'ai',
@@ -313,7 +316,8 @@ const RagChat = () => {
                                             strong: ({ node, ...props }) => <strong style={{ color: '#a5b4fc', fontWeight: '600' }} {...props} />,
                                             table: ({ node, ...props }) => <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '8px' }} {...props} />,
                                             th: ({ node, ...props }) => <th style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px', backgroundColor: 'rgba(99,102,241,0.2)' }} {...props} />,
-                                            td: ({ node, ...props }) => <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '6px' }} {...props} />
+                                            td: ({ node, ...props }) => <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '6px' }} {...props} />,
+                                            a: ({ node, ...props }) => <a style={{ color: '#6366f1', textDecoration: 'underline' }} target="_blank" rel="noopener noreferrer" {...props} />
                                         }}
                                     >
                                         {msg.content}

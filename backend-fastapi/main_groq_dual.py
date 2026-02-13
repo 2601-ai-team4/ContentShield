@@ -19,15 +19,21 @@ import asyncio
 from dotenv import load_dotenv
 import pandas as pd
 from io import StringIO
-from rag_service import RAGService # ✨ RAG 서비스 추가
-from langsmith import traceable # ✨ LangSmith Tracing 추가
+from rag_service import RAGService # RAG 서비스 추가
+from langsmith import traceable # LangSmith Tracing 추가
 
-# ✨ .env 파일 로드
+# .env 파일 로드
 load_dotenv()
 
 # API 키 로드 확인
 api_key_loaded = bool(os.getenv("GROQ_API_KEY"))
 print(f"GROQ_API_KEY loaded: {api_key_loaded}")
+
+import rag_service
+import sys
+print(f"DEBUG: rag_service file path = {rag_service.__file__}")
+print(f"DEBUG: sys.path = {sys.path}")
+
 
 # 로깅 설정
 logging.basicConfig(
@@ -53,11 +59,11 @@ async def startup_event():
     try:
         # Text-to-SQL 모드 (Groq Llama 3.1 8b 사용 - 안정)
         rag_service = RAGService(model_name="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"))
-        logger.info("✅ RAG Service (Text-to-SQL) initialized with Groq Llama 3.1 8b")
+        logger.info("[Init] RAG Service (Text-to-SQL) initialized with Groq Llama 3.1 8b")
         # rag_service = None
         # logger.info("⚠️ RAG Service DISABLED due to startup crash")
     except Exception as e:
-        logger.error(f"❌ Failed to initialize RAG Service: {e}")
+        logger.error(f"[Error] Failed to initialize RAG Service: {e}")
 
 # CORS 설정
 app.add_middleware(
@@ -155,6 +161,14 @@ class RAGLoadRequest(BaseModel):
 
 class RAGChatRequest(BaseModel):
     question: str = Field(..., description="질문 내용")
+    user_id: Optional[int] = Field(None, description="사용자 ID") # 🆕 추가
+
+class AtmosphereResponse(BaseModel):
+    status: str
+    target_channel: Optional[Dict[str, Any]] = None
+    similar_channels: List[Dict[str, Any]] = []
+    message: Optional[str] = None
+
 
 
 
@@ -1576,23 +1590,57 @@ class YoutubeCrawlRequest(BaseModel):
 
 @app.post("/crawl/youtube")
 async def crawl_youtube(request: YoutubeCrawlRequest):
-    """유튜브 댓글 수집 (youtube-comment-downloader 사용)"""
+    """유튜브 댓글 수집 및 비디오 메타데이터 추출"""
     logger.info(f"Crawling YouTube comments for: {request.url}")
     
     try:
+        import httpx
+        import re
         from youtube_comment_downloader import YoutubeCommentDownloader
         downloader = YoutubeCommentDownloader()
         
+        # 1. 비디오 메타데이터 추출 (httpx 사용)
+        metadata = {
+            "title": "Unknown Title",
+            "channel_name": "Unknown Channel",
+            "channel_id": "Unknown_ID"
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(request.url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                })
+                html = resp.text
+                
+                # Title
+                t_match = re.search(r'<meta name="title" content="(.*?)">', html)
+                if t_match: metadata["title"] = t_match.group(1)
+                
+                # Channel Name
+                c_match = re.search(r'<link itemprop="name" content="(.*?)">', html)
+                if c_match: metadata["channel_name"] = c_match.group(1)
+                
+                # Channel ID / URL
+                cid_match = re.search(r'<link itemprop="url" href="http://www.youtube.com/(?:channel/|@)(.*?)">', html)
+                if cid_match: metadata["channel_id"] = cid_match.group(1)
+                
+                # HTML 엔티티 간단 디코딩
+                metadata["title"] = metadata["title"].replace("&#39;", "'").replace("&quot;", '"').replace("&amp;", "&")
+                metadata["channel_name"] = metadata["channel_name"].replace("&#39;", "'").replace("&quot;", '"').replace("&amp;", "&")
+                
+        except Exception as meta_e:
+            logger.error(f"Failed to fetch metadata: {meta_e}")
+
         comments = []
-        # sort_by=1 (최신순), limit=100 (최대 100개만 수집하여 테스트)
+        # sort_by=1 (최신순), limit=100
         generator = downloader.get_comments_from_url(request.url, sort_by=1)
         
         count = 0
         for comment in generator:
-            # if count >= 500:
-            #     break
+            if count >= 300: # 테스트를 위해 300개로 제한
+                break
                 
-
             comments.append({
                 "external_id": comment.get('cid', ''),
                 "author": comment.get('author', 'Unknown'),
@@ -1608,6 +1656,7 @@ async def crawl_youtube(request: YoutubeCrawlRequest):
         return {
             "status": "success",
             "video_url": request.url,
+            "metadata": metadata, # 추가된 필드
             "count": len(comments),
             "comments": comments
         }
@@ -1809,6 +1858,7 @@ async def models_info():
 
 class RagQueryRequest(BaseModel):
     question: str
+    user_id: Optional[int] = None # 🆕 추가
 
 class RagLoadRequest(BaseModel):
     directory: str = "docs"
@@ -1821,11 +1871,13 @@ async def rag_query(request: RagQueryRequest):
          raise HTTPException(status_code=503, detail="RAG Service is not initialized")
     
     try:
-        return rag_service.query(request.question)
+        # Renamed from query to chat_query to verify module reload
+        return rag_service.chat_query(request.question, user_id=request.user_id)
     except Exception as e:
         logger.error(f"RAG Query Failed: {e}")
         import traceback
         return {"answer": f"오류 발생: {str(e)}", "sources": [], "debug": traceback.format_exc()}
+
 
 @app.post("/rag/export")
 async def rag_export(request: RagQueryRequest):
@@ -1900,11 +1952,31 @@ async def rag_chat(request: RAGChatRequest):
         raise HTTPException(status_code=503, detail="RAG Service is not initialized")
     
     try:
-        result = rag_service.query(request.question)
+        # Renamed from query to chat_query to verify module reload
+        return rag_service.chat_query(request.question, user_id=request.user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/rag/compare/atmosphere/{channel_id}", response_model=AtmosphereResponse, summary="채널 분위기 비교")
+async def compare_channel_atmosphere(channel_id: int):
+    """특정 채널의 분위기를 분석하고 유사한 채널을 찾습니다."""
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG Service is not initialized")
+    
+    try:
+        # 1. 비교 연산 실행
+        result = rag_service.compare_atmosphere(channel_id)
+        
+        # 2. 결과 검증
+        if "error" in result:
+             raise HTTPException(status_code=500, detail=result["error"])
+             
         return result
     except Exception as e:
-        logger.error(f"RAG chat failed: {e}")
+        logger.error(f"Atmosphere comparison failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.delete("/rag/clear", summary="벡터 DB 초기화")
 async def clear_vector_db():

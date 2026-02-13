@@ -18,10 +18,11 @@ export const ragService = {
     },
 
     // RAG 질문하기
-    chat: async (question) => {
+    chat: async (question, userId = null) => {
         try {
             const response = await axios.post(`${API_URL}/rag/chat`, {
-                question: question
+                question: question,
+                user_id: userId
             });
             return response.data;
         } catch (error) {
@@ -42,11 +43,12 @@ export const ragService = {
     },
 
     // CSV 다운로드 (블랙리스트 방식과 동일)
-    exportToCSV: async (question) => {
+    exportToCSV: async (question, userId = null) => {
         try {
             // 백엔드에서 JSON 데이터 가져오기
             const response = await axios.post(`${API_URL}/rag/export`, {
-                question: question
+                question: question,
+                user_id: userId
             });
 
             console.log('Export response:', response.data);
